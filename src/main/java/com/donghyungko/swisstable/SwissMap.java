@@ -4,6 +4,7 @@ import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.Arrays;
 
 /**
  * Skeleton for a SwissTable-inspired Map implementation.
@@ -22,6 +23,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 
 	/* Group sizing: 1 << shift equals slots per group; align with Abseil width(kWidth)*/
 	private static final int DEFAULT_SHIFT = 4; // default 16 slots (128-bit SIMD)
+	private static final int DEFAULT_GROUP_SIZE = 1 << DEFAULT_SHIFT;
 
 	/* Storage and state */
 	private byte[] ctrl;     // control bytes (EMPTY/DELETED/lo-hash)
@@ -31,6 +33,26 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	private int tombstones;  // deleted slots
 	private int capacity;    // total slots (length of ctrl/keys/vals)
 	private int shift = DEFAULT_SHIFT; // log2 of slots per group
+
+	public SwissMap() {
+		this(16);
+	}
+
+	public SwissMap(int initialCapacity) {
+		init(initialCapacity);
+	}
+
+	private void init(int desiredCapacity) {
+		int nGroups = Math.max(1, (desiredCapacity + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
+		this.capacity = nGroups * DEFAULT_GROUP_SIZE;
+
+		this.ctrl = new byte[capacity];
+		Arrays.fill(this.ctrl, EMPTY);
+		this.keys = new Object[capacity];
+		this.vals = new Object[capacity];
+		this.size = 0;
+		this.tombstones = 0;
+	}
 
 	@Override
 	public int size() {
