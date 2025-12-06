@@ -79,8 +79,15 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		return (byte) (hash & H2_MASK);
 	}
 
+	/* Hash smearing: lightweight spread similar to java.util.HashMap */
+	private int smear(int h) {
+		h ^= (h >>> 16);
+		return h;
+	}
+
 	private int hash(Object key) {
-		return (key == null) ? 0 : key.hashCode();
+		int h = (key == null) ? 0 : key.hashCode();
+		return smear(h);
 	}
 
 	/* Capacity/load helpers */
@@ -152,7 +159,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 			K k = (K) oldKeys[i];
 			@SuppressWarnings("unchecked")
 			V v = (V) oldVals[i];
-			int h = (k == null) ? 0 : k.hashCode();
+			int h = hash(k);
 			insertFresh(k, v, h1(h), h2(h));
 		}
 	}
