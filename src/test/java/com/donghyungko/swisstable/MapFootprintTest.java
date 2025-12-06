@@ -35,7 +35,7 @@ public class MapFootprintTest {
 		var keyRnd = new Random(SEED);
 		var valueRnd = new Random(SEED);
 
-		var hash = new HashMap<Integer, Object>(entries * 2, 0.75f);
+		var hash = new HashMap<Integer, Object>();
 		var swiss = new SwissMap<Integer, Object>();
 
 		Object[] values = new Object[entries];
