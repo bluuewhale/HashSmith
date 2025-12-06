@@ -65,6 +65,22 @@ public class Demo {
 | jdkPutMiss | 31.65 |
 | swissPutMiss | 26.09 |
 
+## Memory Footprint (JOL)
+- JUnit helper at `src/test/java/com/donghyungko/swisstable/MapFootprint.java`
+- Compares retained heap of HashMap vs SwissMap for multiple sizes and payloads:
+  - `INT`, `SHORT_STR` (8 chars), `LONG_STR` (200 chars)
+- Run:
+```bash
+./gradlew test --tests com.donghyungko.swisstable.MapFootprint
+```
+- SwissMap uses open addressing (no per-entry node objects), so space overhead per entry is lower.
+- Gap vs HashMap is more pronounced for smaller payloads (INT, short strings) because node/boxing overhead dominates; as payload grows, the value size masks the overhead.
+
+![Per-entry memory footprint: INT](images/memory-footprint-int.png)
+![Per-entry memory footprint: SHORT_STR](images/memory-footprint-short-string.png)
+![Per-entry memory footprint: LONG_STR](images/memory-footprint-long-string.png)
+
+
 ## Design Notes
 - Control bytes: `EMPTY=0x80`, `DELETED=0xFE`, low 7 bits store `h2` fingerprint.
 - Group size: 16 slots (aligned to 128-bit SIMD). Load factor ~7/8 triggers resize.
