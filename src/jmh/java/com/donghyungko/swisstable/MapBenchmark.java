@@ -22,7 +22,7 @@ import org.openjdk.jmh.annotations.Warmup;
 @Measurement(iterations = 5)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-public class SwissMapBenchmark {
+public class MapBenchmark {
 
 	@State(Scope.Benchmark)
 	public static class ReadState {
@@ -30,6 +30,7 @@ public class SwissMapBenchmark {
 		int size;
 
 		SwissMap<Integer, Integer> swiss;
+		RobinHoodMap<Integer, Integer> robin;
 		HashMap<Integer, Integer> jdk;
 		int[] keys;
 		int[] misses;
@@ -53,9 +54,11 @@ public class SwissMapBenchmark {
 				misses[i] = miss;
 			}
 			swiss = new SwissMap<>();
+			robin = new RobinHoodMap<>();
 			jdk = new HashMap<>();
 			for (int i = 0; i < size; i++) {
 				swiss.put(keys[i], i);
+				robin.put(keys[i], i);
 				jdk.put(keys[i], i);
 			}
 		}
@@ -73,6 +76,7 @@ public class SwissMapBenchmark {
 		int[] misses;
 		int putValue;
 		SwissMap<Integer, Integer> swiss;
+		RobinHoodMap<Integer, Integer> robin;
 		HashMap<Integer, Integer> jdk;
 
 		@Setup(Level.Trial)
@@ -85,9 +89,11 @@ public class SwissMapBenchmark {
 		@Setup(Level.Iteration)
 		public void resetMaps() {
 			swiss = new SwissMap<>();
+			robin = new RobinHoodMap<>();
 			jdk = new HashMap<>();
 			for (int i = 0; i < size; i++) {
 				swiss.put(keys[i], i);
+				robin.put(keys[i], i);
 				jdk.put(keys[i], i);
 			}
 			putValue = 0;
@@ -105,6 +111,11 @@ public class SwissMapBenchmark {
 	}
 
 	@Benchmark
+	public int robinGetHit(ReadState s) {
+		return s.robin.get(s.nextKey());
+	}
+
+	@Benchmark
 	public int jdkGetHit(ReadState s) {
 		return s.jdk.get(s.nextKey());
 	}
@@ -112,6 +123,12 @@ public class SwissMapBenchmark {
 	@Benchmark
 	public int swissGetMiss(ReadState s) {
 		Integer v = s.swiss.get(s.nextMiss());
+		return v == null ? -1 : v;
+	}
+
+	@Benchmark
+	public int robinGetMiss(ReadState s) {
+		Integer v = s.robin.get(s.nextMiss());
 		return v == null ? -1 : v;
 	}
 
@@ -130,6 +147,13 @@ public class SwissMapBenchmark {
 	}
 
 	@Benchmark
+	public long robinIterate(ReadState s) {
+		long sum = 0;
+		for (var e : s.robin.entrySet()) sum += e.getValue();
+		return sum;
+	}
+
+	@Benchmark
 	public long jdkIterate(ReadState s) {
 		long sum = 0;
 		for (var e : s.jdk.entrySet()) sum += e.getValue();
@@ -141,6 +165,13 @@ public class SwissMapBenchmark {
 	public int swissPutHit(MutateState s) {
 		int k = s.existingKey(0);
 		return s.swiss.put(k, s.nextValue());
+	}
+
+	@Benchmark
+	public int robinPutHit(MutateState s) {
+		int k = s.existingKey(0);
+		Integer prev = s.robin.put(k, s.nextValue());
+		return prev == null ? -1 : prev;
 	}
 
 	@Benchmark
@@ -157,22 +188,17 @@ public class SwissMapBenchmark {
 	}
 
 	@Benchmark
+	public int robinPutMiss(MutateState s) {
+		int k = s.missingKey(s.putValue);
+		Integer prev = s.robin.put(k, s.nextValue());
+		return prev == null ? -1 : prev;
+	}
+
+	@Benchmark
 	public int jdkPutMiss(MutateState s) {
 		int k = s.missingKey(s.putValue);
 		Integer prev = s.jdk.put(k, s.nextValue());
 		return prev == null ? -1 : prev;
 	}
-
-//	// ------- mutating: remove -------
-//	@Benchmark
-//	public int swissRemoveHit(MutateState s) {
-//		int k = s.existingKey(1);
-//		return s.swiss.remove(k);
-//	}
-//
-//	@Benchmark
-//	public int jdkRemoveHit(MutateState s) {
-//		int k = s.existingKey(1);
-//		return s.jdk.remove(k);
-//	}
 }
+
