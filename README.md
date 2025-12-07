@@ -12,6 +12,7 @@
 - HashSmith provides multiple high-performance hash table implementations optimized for speed and memory efficiency on modern JVMs.
 - Focus areas: SIMD-assisted probing (SwissMap), predictable probe lengths (Robin Hood), and minimal per-entry overhead.
 - Built for JDK 21+; SwissMap uses the incubating Vector API for SIMD acceleration.
+- More memory-efficient than the built-in JDK `HashMap`; performance depends on workload.
 
 ## Implementations
 - **SwissMap**: Google's SwissTable-inspired design with SIMD probing, tombstone reuse, and optional scalar fallback. See `docs/SwissMap.md` for details.
@@ -73,6 +74,18 @@ dependencies {
 ./gradlew test         # JUnit 5 tests
 ```
 
+## Memory Footprint (JOL)
+- Compares retained heap of `HashMap` vs `SwissMap` vs `RobinHoodMap` for multiple payload sizes.
+- Run:
+```bash
+./gradlew test --tests io.github.bluuewhale.hashsmith.MapFootprintTest
+```
+### Results
+- `SwissMap` and `RobinHoodMap` both use open addressing, reducing space overhead versus `HashMap`.
+- `SwissMap` uses SIMD-assisted probing and keeps a relatively high default load factor (0.875), fitting more entries per capacity for better memory efficiency.
+- Smaller value sizes amplify the memory efficiency gap; in payload-light cases, `SwissMap` cuts retained heap by up to 43.7% versus `HashMap`.
+![Memory Foorprint](images/memory-footprint.png)
+
 ## Benchmark (JMH, CPU ns/op)
 ```bash
 ./gradlew jmh
@@ -98,18 +111,6 @@ dependencies {
 | iterate |  |
 | --- | --- |
 | ![CPU: iterate](images/cpu-iterate.png) |   |
-
-## Memory Footprint (JOL)
-- Compares retained heap of `HashMap` vs `SwissMap` vs `RobinHoodMap` for multiple payload sizes.
-- Run:
-```bash
-./gradlew test --tests io.github.bluuewhale.hashsmith.MapFootprintTest
-```
-### Results
-- `SwissMap` and `RobinHoodMap` both use open addressing, reducing space overhead versus `HashMap`.
-- `SwissMap` uses SIMD-assisted probing and keeps a relatively high default load factor (0.875), fitting more entries per capacity for better memory efficiency.
-- Smaller value sizes amplify the memory efficiency gap; in payload-light cases, `SwissMap` cuts retained heap by up to 43.7% versus `HashMap`.
-![Memory Foorprint](images/memory-footprint.png)
 
 ## Documentation
 - SwissMap: `docs/SwissMap.md`
