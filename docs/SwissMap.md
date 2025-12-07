@@ -15,7 +15,7 @@
 
 ## Quick Start
 ```java
-import com.donghyungko.hashsmith.SwissMap;
+import io.github.bluuewhale.hashsmith.SwissMap;
 
 public class Demo {
     public static void main(String[] args) {
@@ -73,7 +73,7 @@ public class Demo {
   - `INT`, `SHORT_STR` (8 chars), `LONG_STR` (200 chars)
 - Run:
 ```bash
-./gradlew test --tests com.donghyungko.hashsmith.MapFootprintTest
+./gradlew test --tests io.github.bluuewhale.hashsmith.MapFootprintTest
 ```
 - SwissMap uses open addressing (no per-entry node objects), so space overhead per entry is lower.
 - Gap vs HashMap is more pronounced for smaller payloads (INT, short strings); as payload grows, the value size masks the overhead.

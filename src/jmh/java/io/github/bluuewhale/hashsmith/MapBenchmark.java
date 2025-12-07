@@ -1,4 +1,4 @@
-package com.donghyungko.hashsmith;
+package io.github.bluuewhale.hashsmith;
 
 import java.util.HashMap;
 import java.util.Random;
@@ -151,55 +151,55 @@ public class MapBenchmark {
 	}
 
 	// ------- get hit/miss -------
-	@Benchmark
+//	@Benchmark
 	public int swissGetHit(ReadState s) {
 		return s.swiss.get(s.nextKey());
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int robinGetHit(ReadState s) {
 		return s.robin.get(s.nextKey());
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int jdkGetHit(ReadState s) {
 		return s.jdk.get(s.nextKey());
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int swissGetMiss(ReadState s) {
 		Integer v = s.swiss.get(s.nextMiss());
 		return v == null ? -1 : v;
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int robinGetMiss(ReadState s) {
 		Integer v = s.robin.get(s.nextMiss());
 		return v == null ? -1 : v;
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int jdkGetMiss(ReadState s) {
 		Integer v = s.jdk.get(s.nextMiss());
 		return v == null ? -1 : v;
 	}
 
 	// ------- iterate -------
-	@Benchmark
+//	@Benchmark
 	public long swissIterate(ReadState s) {
 		long sum = 0;
 		for (var e : s.swiss.entrySet()) sum += e.getValue();
 		return sum;
 	}
 
-	@Benchmark
+//	@Benchmark
 	public long robinIterate(ReadState s) {
 		long sum = 0;
 		for (var e : s.robin.entrySet()) sum += e.getValue();
 		return sum;
 	}
 
-	@Benchmark
+//	@Benchmark
 	public long jdkIterate(ReadState s) {
 		long sum = 0;
 		for (var e : s.jdk.entrySet()) sum += e.getValue();
@@ -207,40 +207,40 @@ public class MapBenchmark {
 	}
 
 	// ------- mutating: put hit/miss -------
-	@Benchmark
+//	@Benchmark
 	public int swissPutHit(MutateState s) {
 		int k = s.existingKey(0);
 		return s.swiss.put(k, s.nextValue());
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int robinPutHit(MutateState s) {
 		int k = s.existingKey(0);
 		Integer prev = s.robin.put(k, s.nextValue());
 		return prev == null ? -1 : prev;
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int jdkPutHit(MutateState s) {
 		int k = s.existingKey(0);
 		return s.jdk.put(k, s.nextValue());
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int swissPutMiss(MutateState s) {
 		int k = s.missingKey(s.putValue);
 		Integer prev = s.swiss.put(k, s.nextValue());
 		return prev == null ? -1 : prev;
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int robinPutMiss(MutateState s) {
 		int k = s.missingKey(s.putValue);
 		Integer prev = s.robin.put(k, s.nextValue());
 		return prev == null ? -1 : prev;
 	}
 
-	@Benchmark
+//	@Benchmark
 	public int jdkPutMiss(MutateState s) {
 		int k = s.missingKey(s.putValue);
 		Integer prev = s.jdk.put(k, s.nextValue());

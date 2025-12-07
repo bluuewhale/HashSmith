@@ -14,7 +14,7 @@
 
 ## Quick Start
 ```java
-import com.donghyungko.hashsmith.RobinHoodMap;
+import io.github.bluuewhale.hashsmith.RobinHoodMap;
 
 public class Demo {
     public static void main(String[] args) {

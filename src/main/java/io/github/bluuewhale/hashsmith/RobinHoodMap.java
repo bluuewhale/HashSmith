@@ -1,4 +1,4 @@
-package com.donghyungko.hashsmith;
+package io.github.bluuewhale.hashsmith;
 
 import java.util.AbstractMap;
 import java.util.AbstractSet;

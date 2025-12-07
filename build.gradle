@@ -1,14 +1,16 @@
 plugins {
     id 'java'
     id 'me.champeau.jmh' version '0.7.2'
+    id "com.vanniktech.maven.publish" version "0.28.0"
 }
 
-group = 'com.donghyungko.hashsmith'
-version = '1.0-SNAPSHOT'
+group = 'io.github.bluuewhale'
+version = '0.1.0'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
+    withSourcesJar()
 }
 
 repositories {
@@ -33,6 +35,10 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
 }
 
+javadoc {
+    options.addStringOption('-add-modules', 'jdk.incubator.vector')
+}
+
 jmh {
     warmupIterations = 3
     iterations = 5
@@ -42,3 +48,51 @@ jmh {
     jvmArgs = ['--add-modules', 'jdk.incubator.vector']
 }
 
+mavenPublishing {
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    signAllPublications()
+    coordinates("io.github.bluuewhale", "hashsmith", version)
+
+    pom {
+        name.set("HashSmith")
+        description.set("High-performance open-addressing hash tables for the JVM.")
+        url.set("https://github.com/bluuewhale/hashsmith")
+
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+            }
+        }
+        developers {
+            developer {
+                id.set("bluuewhale")
+                name.set("bluuewhale")
+                url.set("https://github.com/bluuewhale")
+            }
+        }
+        scm {
+            connection.set("scm:git:https://github.com/bluuewhale/hashsmith.git")
+            developerConnection.set("scm:git:ssh://git@github.com:bluuewhale/hashsmith.git")
+            url.set("https://github.com/bluuewhale/hashsmith")
+        }
+    }
+}
+
+signing {
+    def keyFile = System.getenv('GPG_SIGNING_KEY')
+    def pass = System.getenv('GPG_SIGNING_PASSWORD')
+
+    if (keyFile && pass) {
+        def keyText = new File(keyFile).getText('UTF-8')
+        useInMemoryPgpKeys(keyText, pass)
+    } else {
+        logger.warn("GPG_SIGNING_KEY / GPG_SIGNING_PASSWORD environment variables are not set")
+    }
+}
+
+afterEvaluate {
+    tasks.named("generateMetadataFileForMavenPublication") {
+        dependsOn(tasks.named("plainJavadocJar"))
+    }
+}

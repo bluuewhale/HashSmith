@@ -19,8 +19,8 @@
 
 ## Quick Start
 ```java
-import com.donghyungko.hashsmith.SwissMap;
-import com.donghyungko.hashsmith.RobinHoodMap;
+import io.github.bluuewhale.hashsmith.SwissMap;
+import io.github.bluuewhale.hashsmith.RobinHoodMap;
 
 public class Demo {
     public static void main(String[] args) {
@@ -77,7 +77,7 @@ public class Demo {
 - Compares retained heap of `HashMap` vs `SwissMap` vs `RobinHoodMap` for multiple payload sizes.
 - Run:
 ```bash
-./gradlew test --tests com.donghyungko.hashsmith.MapFootprintTest
+./gradlew test --tests io.github.bluuewhale.hashsmith.MapFootprintTest
 ```
 ### Results
 - `SwissMap` and `RobinHoodMap` both use open addressing, reducing space overhead versus `HashMap`.
