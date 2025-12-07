@@ -1,49 +1,45 @@
-# SwissTable for Java (SwissMap)
+# HashSmith: High-performance hash tables for Java
 
-> SwissTable-inspired hash map with SIMD acceleration via the JDK Vector API (incubator).
+> Fast, memory-efficient open-addressing hash tables for the JVM (SwissMap with SIMD + RobinHoodMap with Robin Hood probing).
 
 <!-- TODO: Add badges (CI, License, Release) -->
 
 ## Overview
-- Experimental map implementation inspired by Google Abseil’s SwissTable design, ported to Java.
-- Supports both SIMD and scalar paths.
-- Open addressing with fixed control bytes (`EMPTY`, `DELETED`) and tombstone reuse.
-- Null keys and null values are allowed.
+- HashSmith provides multiple high-performance hash table implementations optimized for speed and memory efficiency on modern JVMs.
+- Focus areas: SIMD-assisted probing (SwissMap), predictable probe lengths (Robin Hood), and minimal per-entry overhead.
+- Built for JDK 21+; SwissMap uses the incubating Vector API for SIMD acceleration.
 
-## Highlights
-- **SIMD probing**: 128-bit vector comparisons on control bytes to find candidate slots quickly.
-- **Load management**: Resizes around a 7/8 load factor to balance speed and memory.
-- **Tombstone reuse**: Reclaims deleted slots to reduce fragmentation.
-- **Complete views**: `keySet`, `values`, and `entrySet` support iterator remove/set semantics.
-
-## Requirements
-- JDK 21+ (needs `jdk.incubator.vector`)
-- Gradle (use the provided wrapper)
-- JVM flag `--add-modules jdk.incubator.vector` (already configured in Gradle).
-
-## Design Notes
-- Control bytes: `EMPTY=0x80`, `DELETED=0xFE`, low 7 bits store `h2` fingerprint.
-- Group size: 16 slots (aligned to 128-bit SIMD). Load factor ~7/8 triggers resize.
-- Rehash reinserts all entries into a fresh table to clear tombstones.
+## Implementations
+- **SwissMap**: SwissTable-inspired design with SIMD probing, tombstone reuse, and optional scalar fallback. Null keys and null values are allowed. See `docs/SwissMap.md` for details, benchmarks, and memory plots.
+- **RobinHoodMap**: Robin Hood hashing with backward-shift deletion and load factor 0.75. Null keys are not allowed; null values are allowed. See `docs/RobinHoodMap.md` for detailed behavior and notes.
 
 ## Quick Start
 ```java
-import com.donghyungko.swisstable.SwissMap;
+import com.donghyungko.hashsmith.SwissMap;
+import com.donghyungko.hashsmith.RobinHoodMap;
 
 public class Demo {
     public static void main(String[] args) {
-        var map = new SwissMap<String, Integer>(SwissMap.Path.SIMD);
-        map.put("a", 1);
-        map.put("b", 2);
-        map.remove("a");
-        map.put("a", 3);
-        System.out.println(map.get("a")); // 3
+        // SwissMap (SIMD path)
+        var swiss = new SwissMap<String, Integer>(SwissMap.Path.SIMD);
+        swiss.put("a", 1);
+        swiss.put("b", 2);
+        System.out.println(swiss.get("a")); // 1
 
-        var scalar = new SwissMap<String, Integer>(SwissMap.Path.SCALAR);
-        scalar.put("x", 42);
+        // RobinHoodMap
+        var robin = new RobinHoodMap<String, Integer>();
+        robin.put("x", 42);
+        robin.put("y", 99);
+        robin.remove("x");
+        System.out.println(robin.get("y")); // 99
     }
 }
 ```
+
+## Requirements
+- JDK 21+ (SwissMap needs `jdk.incubator.vector`)
+- Gradle (wrapper provided)
+- The JVM flag `--add-modules jdk.incubator.vector` is already configured for build, test, and JMH tasks.
 
 ## Build & Test
 ```bash
@@ -55,8 +51,7 @@ public class Demo {
 ```bash
 ./gradlew jmh
 ```
-
-### Plots
+SwissMap JMH (CPU ns/op):
 | get hit | get miss |
 | --- | --- |
 | ![CPU: get hit](images/cpu-get-hit.png) | ![CPU: get miss](images/cpu-get-miss.png) |
@@ -69,20 +64,21 @@ public class Demo {
 | --- | --- |
 | ![CPU: iterate](images/cpu-iterate.png) |  |
 
+For more details, see `docs/SwissMap.md`.
+
 ## Memory Footprint (JOL)
-- JUnit helper at `src/test/java/com/donghyungko/swisstable/MapFootprint.java`
-- Compares retained heap of HashMap vs SwissMap for multiple sizes and payloads:
-  - `INT`, `SHORT_STR` (8 chars), `LONG_STR` (200 chars)
+- JUnit helper at `src/test/java/com/donghyungko/hashsmith/MapFootprintTest.java`.
+- Compares retained heap of `HashMap` vs `SwissMap` vs `RobinHoodMap` for multiple payload sizes.
 - Run:
 ```bash
-./gradlew test --tests com.donghyungko.swisstable.MapFootprint
+./gradlew test --tests com.donghyungko.hashsmith.MapFootprintTest
 ```
-- SwissMap uses open addressing (no per-entry node objects), so space overhead per entry is lower.
-- Gap vs HashMap is more pronounced for smaller payloads (INT, short strings) because node/boxing overhead dominates; as payload grows, the value size masks the overhead.
+- SwissMap and RobinHoodMap both use open addressing (no per-entry node objects), reducing space overhead versus `HashMap`.
+- Memory plots for SwissMap are in `docs/SwissMap.md`.
 
-![Per-entry memory footprint: INT](images/memory-footprint-int.png)
-![Per-entry memory footprint: SHORT_STR](images/memory-footprint-short-string.png)
-![Per-entry memory footprint: LONG_STR](images/memory-footprint-long-string.png)
+## Documentation
+- SwissMap: `docs/SwissMap.md`
+- RobinHoodMap: `docs/RobinHoodMap.md`
 
 ## Contributing
 1) Open an issue for bugs/ideas  

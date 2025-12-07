@@ -1,4 +1,4 @@
-package com.donghyungko.swisstable;
+package com.donghyungko.hashsmith;
 
 import java.util.HashMap;
 import java.util.Random;
@@ -9,7 +9,7 @@ import org.openjdk.jol.info.GraphLayout;
 
 /**
  * JUnit helper to print retained heap size for HashMap vs SwissMap vs RobinHoodMap.
- * Run with `./gradlew test --tests com.donghyungko.swisstable.MapFootprint`.
+ * Run with `./gradlew test --tests com.donghyungko.hashsmith.MapFootprintTest`.
  */
 public class MapFootprintTest {
 

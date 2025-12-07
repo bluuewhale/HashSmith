@@ -1,4 +1,4 @@
-package com.donghyungko.swisstable;
+package com.donghyungko.hashsmith;
 
 import java.util.HashMap;
 import java.util.Random;

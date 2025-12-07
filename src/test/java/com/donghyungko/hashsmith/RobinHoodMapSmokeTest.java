@@ -1,21 +1,21 @@
-package com.donghyungko.swisstable;
+package com.donghyungko.hashsmith;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
-class SwissMapSmokeTest {
+class RobinHoodMapSmokeTest {
 
 	@Test
 	void smokeLargeInsertDeleteReinsert() {
 		// given
-		var m = new SwissMap<Integer, Integer>();
+		var m = new RobinHoodMap<Integer, Integer>();
 		int n = 100_000;
 
 		// when: insert n
 		for (int i = 0; i < n; i++) m.put(i, i * 2);
 
-		// expect: verify
+		// expect
 		for (int i = 0; i < n; i++) assertEquals(i * 2, m.get(i));
 
 		// when: delete half (even)
@@ -43,7 +43,7 @@ class SwissMapSmokeTest {
 	void smokeHighCollisionLoop() {
 		// given keys with identical hashCode
 		record Collide(int v) { @Override public int hashCode() { return 0; } }
-		var m = new SwissMap<Collide, Integer>();
+		var m = new RobinHoodMap<Collide, Integer>();
 		int n = 10_000;
 
 		// when: insert
@@ -63,3 +63,4 @@ class SwissMapSmokeTest {
 		}
 	}
 }
+

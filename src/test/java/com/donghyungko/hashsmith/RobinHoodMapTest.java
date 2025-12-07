@@ -1,4 +1,4 @@
-package com.donghyungko.swisstable;
+package com.donghyungko.hashsmith;
 
 import static org.junit.jupiter.api.Assertions.*;
 
