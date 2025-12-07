@@ -1,6 +1,8 @@
 # HashSmith: High-performance hash tables for Java
 
-![HashSmith logo](images/logo.png)
+<p align="center">
+  <img src="images/logo.png" alt="HashSmith logo" width="330">
+</p>
 
 > Fast, memory-efficient open-addressing hash tables for the JVM (SwissMap with SIMD + RobinHoodMap with Robin Hood probing).
 
@@ -49,11 +51,12 @@ public class Demo {
 ./gradlew test         # JUnit 5 tests
 ```
 
-## Benchmark (JMH)
+## Benchmark (JMH, CPU ns/op)
 ```bash
 ./gradlew jmh
 ```
-SwissMap JMH (CPU ns/op):
+
+### Results
 | get hit | get miss |
 | --- | --- |
 | ![CPU: get hit](images/cpu-get-hit.png) | ![CPU: get miss](images/cpu-get-miss.png) |
@@ -66,8 +69,6 @@ SwissMap JMH (CPU ns/op):
 | --- | --- |
 | ![CPU: iterate](images/cpu-iterate.png) |  |
 
-For more details, see `docs/SwissMap.md`.
-
 ## Memory Footprint (JOL)
 - JUnit helper at `src/test/java/com/donghyungko/hashsmith/MapFootprintTest.java`.
 - Compares retained heap of `HashMap` vs `SwissMap` vs `RobinHoodMap` for multiple payload sizes.
@@ -75,7 +76,8 @@ For more details, see `docs/SwissMap.md`.
 ```bash
 ./gradlew test --tests com.donghyungko.hashsmith.MapFootprintTest
 ```
-- SwissMap and RobinHoodMap both use open addressing (no per-entry node objects), reducing space overhead versus `HashMap`.
+### Results
+- SwissMap and RobinHoodMap both use open addressing, reducing space overhead versus `HashMap`.
 - SwissMap uses SIMD-assisted probing and keeps a relatively high default load factor (0.875), fitting more entries per capacity for better memory efficiency.
 ![Memory Foorprint](images/memory-footprint.png)
 
