@@ -32,6 +32,11 @@ class MapSmokeTest {
 		return (Map<K, V>) spec.mapSupplier().get();
 	}
 
+	@SuppressWarnings("unchecked")
+	private static <K, V> Map<K, V> newMap(MapSpec spec, int capacity) {
+		return (Map<K, V>) spec.mapWithCapacitySupplier().apply(capacity);
+	}
+
 	@ParameterizedTest(name = "{0} smokeLargeInsertDeleteReinsert")
 	@MethodSource("mapSpecs")
 	void smokeLargeInsertDeleteReinsert(MapSpec spec) {
@@ -72,5 +77,36 @@ class MapSmokeTest {
 			if (i % 3 == 0) assertNull(v);
 			else assertEquals(i, v);
 		}
+	}
+
+	@ParameterizedTest(name = "{0} populateAndCloneTimings")
+	@MethodSource("mapSpecs")
+	void populateAndCloneTimings(MapSpec spec) {
+		int n = 1_000_000;
+
+		long startPopulate = System.nanoTime();
+		var original = newMap(spec, n);
+		for (int i = 1; i <= n; i++) {
+			original.put(i, i);
+		}
+		long afterPopulate = System.nanoTime();
+
+		long startClone = System.nanoTime();
+		var cloned = newMap(spec, n);
+		for (var e : original.entrySet()) {
+			cloned.put(e.getKey(), e.getValue());
+		}
+		long afterClone = System.nanoTime();
+
+		assertEquals(n, original.size());
+		assertEquals(original.size(), cloned.size());
+		assertEquals(original.get(1234), cloned.get(1234));
+
+		double populateMs = (afterPopulate - startPopulate) / 1_000_000.0;
+		double cloneMs = (afterClone - startClone) / 1_000_000.0;
+		System.out.printf(
+			"%s populate %,d entries: %.2f ms, clone: %.2f ms%n",
+			spec.name(), n, populateMs, cloneMs
+		);
 	}
 }
