@@ -1,6 +1,5 @@
 package io.github.bluuewhale.hashsmith;
 
-import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -8,7 +7,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorSpecies;
 
@@ -16,7 +14,7 @@ import jdk.incubator.vector.VectorSpecies;
  * Skeleton for a SwissTable-inspired Map implementation.
  * All methods are not implemented yet; logic will be filled later.
  */
-public class SwissMap<K, V> extends AbstractMap<K, V> {
+public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 
 	public enum Path { SCALAR, SIMD }
 
@@ -40,12 +38,8 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	private byte[] ctrl;     // control bytes (EMPTY/DELETED/H2 fingerprint)
 	private Object[] keys;   // key storage
 	private Object[] vals;   // value storage
-	private int size;        // live entries
 	private int tombstones;  // deleted slots
-	private int capacity;    // total slots (length of ctrl/keys/vals)
-	private int maxLoad;     // threshold to trigger rehash/resize
 	private boolean useSimd = true;
-	private double loadFactor = DEFAULT_LOAD_FACTOR;
 
 
 	public SwissMap() {
@@ -69,13 +63,12 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	private SwissMap(int initialCapacity, double loadFactor, boolean useSimd) {
-		validateLoadFactor(loadFactor);
-		this.loadFactor = loadFactor;
+		super(initialCapacity, loadFactor);
 		this.useSimd = useSimd;
-		init(initialCapacity);
 	}
 
-	private void init(int desiredCapacity) {
+	@Override
+	protected void init(int desiredCapacity) {
 		int nGroups = Math.max(1, (desiredCapacity + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
 		nGroups = ceilPow2(nGroups);
 		this.capacity = nGroups * DEFAULT_GROUP_SIZE;
@@ -100,24 +93,7 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	private int hash(Object key) {
-		return Hashing.smearedHash(key);
-	}
-
-	/* Capacity/load helpers */
-	private int calcMaxLoad(int cap) {
-		int ml = (int) (cap * loadFactor);
-		return Math.max(1, Math.min(ml, cap - 1));
-	}
-
-	private void validateLoadFactor(double lf) {
-		if (!(lf > 0.0d && lf < 1.0d)) {
-			throw new IllegalArgumentException("loadFactor must be in (0,1): " + lf);
-		}
-	}
-
-	private int ceilPow2(int x) {
-		if (x <= 1) return 1;
-		return Integer.highestOneBit(x - 1) << 1;
+		return hashNullable(key);
 	}
 
 	private int numGroups() {
@@ -232,12 +208,6 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	@Override
-	public V get(Object key) {
-		int idx = findIndex(key);
-		return (idx >= 0) ? castValue(vals[idx]) : null;
-	}
-
-	@Override
 	public V put(K key, V value) {
 		maybeResize();
 		int h = hash(key);
@@ -344,7 +314,8 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	/* lookup utilities */
-	private int findIndex(Object key) {
+	@Override
+	protected int findIndex(Object key) {
 		if (size == 0) return -1;
 		int h = hash(key);
 		int h1 = h1(h);
@@ -401,20 +372,25 @@ public class SwissMap<K, V> extends AbstractMap<K, V> {
 		return (K) k;
 	}
 
+	@Override
+	protected V valueAt(int idx) {
+		return castValue(vals[idx]);
+	}
+
 	/* iterator base */
 	private abstract class BaseIter<T> implements Iterator<T> {
 		private final int start;
 		private final int step;
-		private final int mask = capacity - 1; // capacity is a power of two
+		private final int mask;
 		private int iter = 0;
 		private int next = -1;
 		private int last = -1;
 
 		BaseIter() {
-			ThreadLocalRandom r = ThreadLocalRandom.current();
-			// Odd step is coprime to power-of-two capacity, so (start + i*step) & mask visits every slot once.
-			this.start = r.nextInt() & mask;
-			this.step = r.nextInt() | 1; // odd step yields full cycle
+			RandomCycle cycle = new RandomCycle(capacity);
+			this.start = cycle.start;
+			this.step = cycle.step;
+			this.mask = cycle.mask;
 			advance();
 		}
 

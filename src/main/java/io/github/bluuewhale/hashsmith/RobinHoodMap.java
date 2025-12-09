@@ -1,19 +1,17 @@
 package io.github.bluuewhale.hashsmith;
 
-import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Robin Hood hashing map (null keys NOT allowed, null values allowed).
  * Backward-shift deletion, linear probing, null-sentinel empty slots.
  */
-public class RobinHoodMap<K, V> extends AbstractMap<K, V> {
+public class RobinHoodMap<K, V> extends AbstractArrayMap<K, V> {
 
 	/* Defaults */
 	private static final int DEFAULT_INITIAL_CAPACITY = 16;
@@ -23,10 +21,6 @@ public class RobinHoodMap<K, V> extends AbstractMap<K, V> {
 	private Object[] keys;
 	private Object[] vals;
 	private int[] dist; // probe distance (0-based)
-	private int size;
-	private int capacity;
-	private int maxLoad;
-	private double loadFactor = DEFAULT_LOAD_FACTOR;
 
 	public RobinHoodMap() {
 		this(DEFAULT_INITIAL_CAPACITY, DEFAULT_LOAD_FACTOR);
@@ -37,32 +31,12 @@ public class RobinHoodMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	public RobinHoodMap(int initialCapacity, double loadFactor) {
-		validateLoadFactor(loadFactor);
-		this.loadFactor = loadFactor;
+		super(initialCapacity, loadFactor);
+	}
+
+	@Override
+	protected void init(int initialCapacity) {
 		resize(initialCapacity);
-	}
-
-	/* ------------ Map API ------------ */
-
-	@Override
-	public int size() {
-		return size;
-	}
-
-	@Override
-	public boolean isEmpty() {
-		return size == 0;
-	}
-
-	@Override
-	public boolean containsKey(Object key) {
-		return findIndex(key) >= 0;
-	}
-
-	@Override
-	public V get(Object key) {
-		int idx = findIndex(key);
-		return (idx < 0) ? null : castValue(vals[idx]);
 	}
 
 	@Override
@@ -132,12 +106,6 @@ public class RobinHoodMap<K, V> extends AbstractMap<K, V> {
 		return new EntrySet();
 	}
 
-
-	private int calcMaxLoad(int cap) {
-		int ml = (int) (cap * loadFactor);
-		return Math.max(1, Math.min(ml, cap - 1));
-	}
-
 	/* Resize/rebuild helpers */
 	private void resize(int newCapacity) {
 		int targetCap = ceilPow2(Math.max(DEFAULT_INITIAL_CAPACITY, newCapacity));
@@ -174,24 +142,12 @@ public class RobinHoodMap<K, V> extends AbstractMap<K, V> {
 
 	/* Hash helpers */
 	private int hash(Object key) {
-		if (key == null) throw new NullPointerException("Null keys not supported");
-		return Hashing.smearedHash(key);
-	}
-
-	/* Capacity helpers */
-	private int ceilPow2(int x) {
-		if (x <= 1) return 1;
-		return Integer.highestOneBit(x - 1) << 1;
-	}
-
-	private void validateLoadFactor(double lf) {
-		if (!(lf > 0.0d && lf < 1.0d)) {
-			throw new IllegalArgumentException("loadFactor must be in (0,1): " + lf);
-		}
+		return hashNonNull(key);
 	}
 
 	/* Internal helpers */
-	private int findIndex(Object key) {
+	@Override
+	protected int findIndex(Object key) {
 		if (key == null) throw new NullPointerException("Null keys not supported");
 		int h = hash(key);
 		int mask = capacity - 1;
@@ -243,6 +199,11 @@ public class RobinHoodMap<K, V> extends AbstractMap<K, V> {
 		dist[idx] = 0;
 	}
 
+	@Override
+	protected V valueAt(int idx) {
+		return castValue(vals[idx]);
+	}
+
 	@SuppressWarnings("unchecked")
 	private K castKey(Object key) {
 		return (K) key;
@@ -282,11 +243,9 @@ public class RobinHoodMap<K, V> extends AbstractMap<K, V> {
 		private boolean canRemove;
 
 		EntryIterator() {
-			ThreadLocalRandom r = ThreadLocalRandom.current();
-			// With power-of-two capacity, an odd step is coprime to capacity, so (start + i*step) & mask
-			// walks every slot exactly once (full cycle) without extra allocations.
-			this.start = r.nextInt() & mask;
-			this.step = r.nextInt() | 1; // odd step yields full cycle (capacity is power of two)
+			RandomCycle cycle = new RandomCycle(capacity);
+			this.start = cycle.start;
+			this.step = cycle.step;
 			advance();
 		}
 
