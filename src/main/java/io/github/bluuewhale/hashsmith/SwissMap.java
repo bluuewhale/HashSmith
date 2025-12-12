@@ -95,13 +95,9 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	private boolean isFull(byte c) { return c >= 0 && c <= H2_MASK; } // H2 in [0,127]
 
 	/* SIMD helpers */
-	private long simdEq(byte[] array, int base, byte value) {
-		ByteVector v = ByteVector.fromArray(SPECIES, array, base);
-		return v.eq(value).toLong();
+	private ByteVector loadCtrlVector(int base) {
+		return ByteVector.fromArray(SPECIES, ctrl, base);
 	}
-
-	private long simdEmpty(byte[] array, int base) { return simdEq(array, base, EMPTY); }
-	private long simdDeleted(byte[] array, int base) { return simdEq(array, base, DELETED); }
 
 	/* Resize/rehash skeletons (implementation to be filled later) */
 	private void maybeResize() {
@@ -202,7 +198,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
-			long eqMask = simdEq(ctrl, base, h2);
+			ByteVector v = loadCtrlVector(base);
+			long eqMask = v.eq(h2).toLong();
 			while (eqMask != 0) {
 				int bit = Long.numberOfTrailingZeros(eqMask);
 				int idx = base + bit;
@@ -214,10 +211,10 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 				eqMask &= eqMask - 1; // clear LSB
 			}
 			if (firstTombstone < 0) {
-				long delMask = simdDeleted(ctrl, base);
+				long delMask = v.eq(DELETED).toLong();
 				if (delMask != 0) firstTombstone = base + Long.numberOfTrailingZeros(delMask);
 			}
-			long emptyMask = simdEmpty(ctrl, base); // almost always true
+			long emptyMask = v.eq(EMPTY).toLong();
 			if (emptyMask != 0) {
 				int idx = base + Long.numberOfTrailingZeros(emptyMask);
 				int target = (firstTombstone >= 0) ? firstTombstone : idx;
@@ -287,7 +284,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
-			long eqMask = simdEq(ctrl, base, h2);
+			ByteVector v = loadCtrlVector(base);
+			long eqMask = v.eq(h2).toLong();
 			while (eqMask != 0) {
 				int bit = Long.numberOfTrailingZeros(eqMask);
 				int idx = base + bit;
@@ -296,7 +294,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 				}
 				eqMask &= eqMask - 1;
 			}
-			long emptyMask = simdEmpty(ctrl, base);
+			long emptyMask = v.eq(EMPTY).toLong();
 			if (emptyMask != 0) { // almost always true
 				return -1;
 			}
