@@ -226,29 +226,28 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
     public void putAll(Map<? extends K, ? extends V> m) {
         if (m.isEmpty()) return;
 
-        // 预先检查是否需要扩容，保持与maybeRehash一致的逻辑
+        // Pre-check if resizing is needed, keeping consistent logic with maybeRehash
         boolean overMaxLoad = (size + tombstones + m.size()) >= maxLoad;
-        boolean tooManyTombstones = tombstones > ((size + m.size()) >>> 1);
-
-        if (overMaxLoad || tooManyTombstones) {
-            // 直接使用 newSize 作为新的容量，rehash 方法会自动调整为合适的容量
+        
+        if (overMaxLoad) {
+            // Directly use newSize as the new capacity, rehash method will automatically adjust to appropriate capacity
             int newSize = this.size + m.size();
-            int newCapacity = overMaxLoad ? Math.max(capacity * 2, DEFAULT_GROUP_SIZE) : capacity;
-            // 确保容量足够大以容纳所有元素
+            int newCapacity = Math.max(capacity * 2, DEFAULT_GROUP_SIZE);
+            // Ensure capacity is large enough to accommodate all elements
             while (((int) (newCapacity * loadFactor)) < newSize) {
                 newCapacity = Math.max(newCapacity * 2, DEFAULT_GROUP_SIZE);
             }
             rehash(newCapacity);
         }
 
-        // 批量插入，避免在每次put时都检查是否需要扩容
+        // Batch insert, avoiding checking if resizing is needed on each put
         for (Entry<? extends K, ? extends V> e : m.entrySet()) {
             putVal(e.getKey(), e.getValue());
         }
     }
 
     /**
-     * 不检查扩容的put方法，用于批量插入优化
+     * Put method without resize checking, used for batch insert optimization
      */
     private V putVal(K key, V value) {
         int h = hash(key);
