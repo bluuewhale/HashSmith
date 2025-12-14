@@ -1,5 +1,7 @@
 package io.github.bluuewhale.hashsmith;
 
+import jdk.incubator.vector.ByteVector;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -241,6 +243,32 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		return putVal(key, value);
 	}
 
+	@Override
+	public V remove(Object key) {
+		int idx = findIndex(key);
+		if (idx < 0) return null;
+		V old = castValue(vals[idx]);
+		setCtrlAt(ctrl, idx, DELETED);
+		setEntryAt(idx, null, null);
+		size--;
+		tombstones++;
+		maybeRehash();
+		return old;
+	}
+
+	/**
+	 * Testing/benchmark only: delete without leaving a tombstone.
+	 * Fills the hole via backward shift to keep probing contiguous.
+	 */
+	public V removeWithoutTombstone(Object key) {
+		int idx = findIndex(key);
+		if (idx < 0) return null;
+		V old = castValue(vals[idx]);
+		backshiftDelete(idx);
+		size--;
+		return old;
+	}
+
     @Override
     public void putAll(Map<? extends K, ? extends V> m) {
         if (m.isEmpty()) return;
@@ -306,32 +334,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
             g = (g + 1) & mask;
         }
     }
-
-	@Override
-	public V remove(Object key) {
-		int idx = findIndex(key);
-		if (idx < 0) return null;
-		V old = castValue(vals[idx]);
-		setCtrlAt(ctrl, idx, DELETED);
-		setEntryAt(idx, null, null);
-		size--;
-		tombstones++;
-		maybeRehash();
-		return old;
-	}
-
-	/**
-	 * Testing/benchmark only: delete without leaving a tombstone.
-	 * Fills the hole via backward shift to keep probing contiguous.
-	 */
-	public V removeWithoutTombstone(Object key) {
-		int idx = findIndex(key);
-		if (idx < 0) return null;
-		V old = castValue(vals[idx]);
-		backshiftDelete(idx);
-		size--;
-		return old;
-	}
 
 	@Override
 	public void clear() {
