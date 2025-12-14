@@ -30,7 +30,7 @@ class MapSmokeTest {
                 cap -> new HashMap<>(cap, 0.9f),
                 0.9
             ),
-            new MapSpec(
+			new MapSpec(
                 "SwissMap",
                 () -> new SwissMap<>(16, 0.5),
                 cap -> new SwissMap<>(cap, 0.5),
@@ -42,10 +42,28 @@ class MapSmokeTest {
                 cap -> new SwissMap<>(cap, 0.75),
                 0.75
             ),
-			new MapSpec(
+            new MapSpec(
                 "SwissMap",
                 () -> new SwissMap<>(16, 0.875),
                 cap -> new SwissMap<>(cap, 0.875),
+                0.875
+            ),
+            new MapSpec(
+                "SwissSimdMap",
+                () -> new SwissSimdMap<>(16, 0.5),
+                cap -> new SwissSimdMap<>(cap, 0.5),
+                0.5
+            ),
+            new MapSpec(
+                "SwissSimdMap",
+                () -> new SwissSimdMap<>(16, 0.75),
+                cap -> new SwissSimdMap<>(cap, 0.75),
+                0.75
+            ),
+			new MapSpec(
+                "SwissSimdMap",
+                () -> new SwissSimdMap<>(16, 0.875),
+                cap -> new SwissSimdMap<>(cap, 0.875),
                 0.875
             ),
             new MapSpec(
@@ -64,24 +82,6 @@ class MapSmokeTest {
                 "RobinHoodMap",
                 () -> new RobinHoodMap<>(16, 0.875),
                 cap -> new RobinHoodMap<>(cap, 0.875),
-                0.875
-            ),
-			new MapSpec(
-                "SwissSwarMap",
-                () -> new SwissSwarMap<>(16, 0.5),
-                cap -> new SwissSwarMap<>(cap, 0.5),
-                0.5
-            ),
-            new MapSpec(
-                "SwissSwarMap",
-                () -> new SwissSwarMap<>(16, 0.75),
-                cap -> new SwissSwarMap<>(cap, 0.75),
-                0.75
-            ),
-            new MapSpec(
-                "SwissSwarMap",
-                () -> new SwissSwarMap<>(16, 0.875),
-                cap -> new SwissSwarMap<>(cap, 0.875),
                 0.875
             )
 		);

@@ -16,7 +16,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.openjdk.jol.info.GraphLayout;
 
 /**
- * JUnit helper to print retained heap size for HashMap vs SwissMap vs RobinHoodMap.
+ * JUnit helper to print retained heap size for HashMap vs SwissSimdMap vs SwissMap vs RobinHoodMap.
  * Run with `./gradlew test --tests com.donghyungko.hashsmith.MapFootprintTest`.
  */
 public class MapFootprintTest {
@@ -40,6 +40,7 @@ public class MapFootprintTest {
 	private static final List<MapSpec> MAP_SPECS = List.of(
 //			new MapSpec("HashMap", HashMap::new)
 			new MapSpec("SwissMap", SwissMap::new),
+			new MapSpec("SwissSimdMap", SwissSimdMap::new),
 			new MapSpec("UnifiedMap", UnifiedMap::new),
 			new MapSpec("Object2ObjectOpenHashMap", Object2ObjectOpenHashMap::new)
 	);

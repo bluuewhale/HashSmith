@@ -21,7 +21,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
 /**
- * Microbenchmarks for breaking down SwissMap's SIMD equality path:
+ * Microbenchmarks for breaking down SwissSimdMap's SIMD equality path:
  * - ByteVector.fromArray (load)
  * - v.eq(value) (compare)
  * - mask.toLong() (bitmask materialization)
@@ -64,7 +64,7 @@ public class SimdEqBenchmark {
         public int base;
 
         /**
-         * Values to compare against (covers low values and the upper 7-bit range used by SwissMap ctrl bytes).
+         * Values to compare against (covers low values and the upper 7-bit range used by SwissSimdMap ctrl bytes).
          */
         @Param({ "0" })
         public int valueParam;
@@ -183,7 +183,7 @@ public class SimdEqBenchmark {
     }
 
     /**
-     * (D) Measure the full pipeline (load + eq + toLong), matching SwissMap's simdEq shape.
+     * (D) Measure the full pipeline (load + eq + toLong), matching SwissSimdMap's simdEq shape.
      */
     @Benchmark
     public void pipeline_load_eq_toLong(S s, Blackhole bh) {

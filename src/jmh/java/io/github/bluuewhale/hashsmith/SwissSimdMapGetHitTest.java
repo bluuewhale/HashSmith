@@ -22,7 +22,7 @@ import org.openjdk.jmh.annotations.Warmup;
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 10, time = 2)
 // Benchmark adapted from Eclipse Collections mutable map get test.
-public class SwissMapGetHitTest {
+public class SwissSimdMapGetHitTest {
 
 	private static final int RANDOM_COUNT = 9;
 
@@ -33,7 +33,7 @@ public class SwissMapGetHitTest {
 	public int size;
 
 	private String[] elements;
-	private SwissMap<String, String> swissMap;
+	private SwissSimdMap<String, String> swissMap;
 
 	private String randomNumeric(Random random) {
 		StringBuilder sb = new StringBuilder(RANDOM_COUNT);
@@ -46,7 +46,7 @@ public class SwissMapGetHitTest {
 	@Setup
 	public void setUp() {
 		this.elements = new String[this.size];
-		this.swissMap = new SwissMap<>(this.size);
+		this.swissMap = new SwissSimdMap<>(this.size);
 		Random random = new Random(123456789012345L);
 		for (int i = 0; i < this.size; i++) {
 			String element = randomNumeric(random);
@@ -59,7 +59,7 @@ public class SwissMapGetHitTest {
 	public void get() {
 		int localSize = this.size;
 		String[] localElements = this.elements;
-		SwissMap<String, String> localSwissMap = this.swissMap;
+		SwissSimdMap<String, String> localSwissMap = this.swissMap;
 		for (int i = 0; i < localSize; i++) {
 			if (localSwissMap.get(localElements[i]) == null) {
 				throw new AssertionError(i);

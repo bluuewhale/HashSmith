@@ -63,8 +63,8 @@ public class MapBenchmark {
         @Param({ "12000", "48000", "196000", "784000" }) // load factor equals to 74.x% (right before resizing)
 		int size;
 
+		SwissSimdMap<String, Object> swissSimd;
 		SwissMap<String, Object> swiss;
-		SwissSwarMap<String, Object> swissSwar;
 		Object2ObjectOpenHashMap<String, Object> fastutil;
 		UnifiedMap<String, Object> unified;
 		HashMap<String, Object> jdk;
@@ -94,13 +94,13 @@ public class MapBenchmark {
 			nextKeyIndex = 0;
 			nextMissIndex = 0;
 			swiss = new SwissMap<>();
-			swissSwar = new SwissSwarMap<>();
+			swissSimd = new SwissSimdMap<>();
 			fastutil = new Object2ObjectOpenHashMap<>();
 			unified = new UnifiedMap<>();
 			jdk = new HashMap<>();
 			for (int i = 0; i < size; i++) {
 				swiss.put(keys[i], "dummy");
-				swissSwar.put(keys[i], "dummy");
+				swissSimd.put(keys[i], "dummy");
 				fastutil.put(keys[i], "dummy");
 				unified.put(keys[i], "dummy");
 				jdk.put(keys[i], "dummy");
@@ -128,8 +128,8 @@ public class MapBenchmark {
 		String[] keys;
 		String[] misses;
 		Random rnd;
+		SwissSimdMap<String, Object> swissSimd;
 		SwissMap<String, Object> swiss;
-		SwissSwarMap<String, Object> swissSwar;
 		Object2ObjectOpenHashMap<String, Object> fastutil;
 		UnifiedMap<String, Object> unified;
 		HashMap<String, Object> jdk;
@@ -146,13 +146,13 @@ public class MapBenchmark {
 		public void resetMaps() {
 			idx = 0;
 			swiss = new SwissMap<>();
-			swissSwar = new SwissSwarMap<>();
+			swissSimd = new SwissSimdMap<>();
 			fastutil = new Object2ObjectOpenHashMap<>();
 			unified = new UnifiedMap<>();
 			jdk = new HashMap<>();
 			for (int i = 0; i < size; i++) {
 				swiss.put(keys[i], "dummy");
-				swissSwar.put(keys[i], "dummy");
+				swissSimd.put(keys[i], "dummy");
 				fastutil.put(keys[i], "dummy");
 				unified.put(keys[i], "dummy");
 				jdk.put(keys[i], "dummy");
@@ -186,8 +186,8 @@ public class MapBenchmark {
 
 		String nextKey;
 
+		SwissSimdMap<String, Object> swissSimd;
 		SwissMap<String, Object> swiss;
-		SwissSwarMap<String, Object> swissSwar;
 		Object2ObjectOpenHashMap<String, Object> fastutil;
 		UnifiedMap<String, Object> unified;
 		HashMap<String, Object> jdk;
@@ -203,14 +203,14 @@ public class MapBenchmark {
 		@Setup(Level.Iteration)
 		public void resetMaps() {
 			idx = 0;
+			swissSimd = new SwissSimdMap<>();
 			swiss = new SwissMap<>();
-			swissSwar = new SwissSwarMap<>();
 			fastutil = new Object2ObjectOpenHashMap<>();
 			unified = new UnifiedMap<>();
 			jdk = new HashMap<>();
 			for (int i = 0; i < size; i++) {
+				swissSimd.put(keys[i], "dummy");
 				swiss.put(keys[i], "dummy");
-				swissSwar.put(keys[i], "dummy");
 				fastutil.put(keys[i], "dummy");
 				unified.put(keys[i], "dummy");
 				jdk.put(keys[i], "dummy");
@@ -226,8 +226,8 @@ public class MapBenchmark {
 		@Setup(Level.Invocation)
 		public void beforeInvocation() {
 			String evictKey = keys[idx];
-			swiss.removeWithoutTombstone(evictKey); // SwissMap: delete without tombstones to keep load factor clean
-			swissSwar.removeWithoutTombstone(evictKey);
+			swissSimd.removeWithoutTombstone(evictKey); // SwissSimdMap: delete without tombstones to keep load factor clean
+			swiss.removeWithoutTombstone(evictKey);
 			fastutil.remove(evictKey);
 			unified.remove(evictKey);
 			jdk.remove(evictKey);
@@ -247,13 +247,13 @@ public class MapBenchmark {
 
 	// ------- get hit/miss -------
 //	@Benchmark
-	public void swissGetHit(ReadState s, Blackhole bh) {
-		bh.consume(s.swiss.get(s.nextHitKey()));
+	public void swissSimdGetHit(ReadState s, Blackhole bh) {
+		bh.consume(s.swissSimd.get(s.nextHitKey()));
 	}
 
 	@Benchmark
-	public void swissSwarGetHit(ReadState s, Blackhole bh) {
-		bh.consume(s.swissSwar.get(s.nextHitKey()));
+	public void swissGetHit(ReadState s, Blackhole bh) {
+		bh.consume(s.swiss.get(s.nextHitKey()));
 	}
 
 //	@Benchmark
@@ -272,13 +272,13 @@ public class MapBenchmark {
 	}
 
 //	@Benchmark
-	public void swissGetMiss(ReadState s, Blackhole bh) {
-		bh.consume(s.swiss.get(s.nextMissingKey()));
+	public void swissSimdGetMiss(ReadState s, Blackhole bh) {
+		bh.consume(s.swissSimd.get(s.nextMissingKey()));
 	}
 
 	@Benchmark
-	public void swissSwarGetMiss(ReadState s, Blackhole bh) {
-		bh.consume(s.swissSwar.get(s.nextMissingKey()));
+	public void swissGetMiss(ReadState s, Blackhole bh) {
+		bh.consume(s.swiss.get(s.nextMissingKey()));
 	}
 
 //	@Benchmark
@@ -298,13 +298,13 @@ public class MapBenchmark {
 
 	// ------- mutating: put hit/miss -------
 //	@Benchmark
-	public void swissPutHit(PutHitState s, Blackhole bh) {
-        bh.consume(s.swiss.put(s.nextHitKey(), s.nextValue()));
+	public void swissSimdPutHit(PutHitState s, Blackhole bh) {
+        bh.consume(s.swissSimd.put(s.nextHitKey(), s.nextValue()));
 	}
 
     @Benchmark
-	public void swissSwarPutHit(PutHitState s, Blackhole bh) {
-        bh.consume(s.swissSwar.put(s.nextHitKey(), s.nextValue()));
+	public void swissPutHit(PutHitState s, Blackhole bh) {
+        bh.consume(s.swiss.put(s.nextHitKey(), s.nextValue()));
 	}
 
 //    @Benchmark
@@ -323,13 +323,13 @@ public class MapBenchmark {
 	}
 
 //	@Benchmark
-	public void swissPutMiss(PutMissState s, Blackhole bh) {
-        bh.consume(s.swiss.put(s.nextMissKey(), s.nextValue()));
+	public void swissSimdPutMiss(PutMissState s, Blackhole bh) {
+        bh.consume(s.swissSimd.put(s.nextMissKey(), s.nextValue()));
 	}
 
     @Benchmark
-	public void swissSwarPutMiss(PutMissState s, Blackhole bh) {
-        bh.consume(s.swissSwar.put(s.nextMissKey(), s.nextValue()));
+	public void swissPutMiss(PutMissState s, Blackhole bh) {
+        bh.consume(s.swiss.put(s.nextMissKey(), s.nextValue()));
 	}
 
 //    @Benchmark

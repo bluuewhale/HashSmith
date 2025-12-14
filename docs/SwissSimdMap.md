@@ -1,4 +1,4 @@
-# SwissMap (HashSmith)
+# SwissSimdMap (HashSmith)
 
 > SwissTable-inspired hash map with SIMD acceleration via the JDK Vector API (incubator).
 
@@ -15,11 +15,11 @@
 
 ## Quick Start
 ```java
-import io.github.bluuewhale.hashsmith.SwissMap;
+import io.github.bluuewhale.hashsmith.SwissSimdMap;
 
 public class Demo {
     public static void main(String[] args) {
-        var map = new SwissMap<String, Integer>();
+        var map = new SwissSimdMap<String, Integer>();
         map.put("a", 1);
         map.put("b", 2);
         map.remove("a");

@@ -48,4 +48,4 @@ public class Demo {
 
 ## Tips
 - Works well for workloads needing predictable probe lengths without SIMD support.
-- For vectorized probing and null-key support, see `SwissMap`.
+- For vectorized probing and null-key support, see `SwissSimdMap`.

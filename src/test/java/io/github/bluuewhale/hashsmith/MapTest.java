@@ -32,18 +32,18 @@ class MapTest {
 				false
 			),
 			new MapSpec(
+				"SwissSimdMap",
+				SwissSimdMap::new,
+				SwissSimdMap::new,
+				true,
+				false
+			),
+			new MapSpec(
 				"RobinHoodMap",
 				RobinHoodMap::new,
 				RobinHoodMap::new,
 				false,
 				true
-			),
-			new MapSpec(
-				"SwissSwarMap",
-				SwissSwarMap::new,
-				SwissSwarMap::new,
-				true,
-				false
 			)
 		);
 	}
