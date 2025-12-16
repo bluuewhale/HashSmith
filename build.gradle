@@ -20,6 +20,7 @@ repositories {
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.eclipse.collections:eclipse-collections:11.1.0'
     testImplementation 'it.unimi.dsi:fastutil:8.5.13'
     testImplementation 'org.openjdk.jol:jol-core:0.17'
