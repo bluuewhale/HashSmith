@@ -263,7 +263,8 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
             while (eqMask != 0) {
                 int bit = Long.numberOfTrailingZeros(eqMask);
                 int idx = base + bit;
-                if (Objects.equals(keys[idx], key)) { // almost always true; too bad I can’t hint the compiler
+				Object k = keys[idx];
+				if (k == key || k.equals(key)) { // almost always true; too bad I can’t hint the compiler
                     @SuppressWarnings("unchecked") V old = (V) vals[idx];
                     vals[idx] = value;
                     return old;
@@ -330,7 +331,8 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 			while (eqMask != 0) {
 				int bit = Long.numberOfTrailingZeros(eqMask);
 				int idx = base + bit;
-				if (Objects.equals(keys[idx], key)) { // almost always true
+				Object k = keys[idx];
+				if (k == key || k.equals(key)) { // almost always true
 					return idx;
 				}
 				eqMask &= eqMask - 1;

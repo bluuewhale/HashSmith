@@ -299,7 +299,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 			int eqMask = eqMask(word, h2);
             while (eqMask != 0) {
                 int idx = base + Integer.numberOfTrailingZeros(eqMask);
-                if (Objects.equals(keys[idx], key)) {
+                Object k = keys[idx];
+                if (k == key || k.equals(key)) {
                     V old = castValue(vals[idx]);
                     vals[idx] = value;
                     return old;
@@ -364,7 +365,8 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 			int eqMask = eqMask(word, h2);
 			while (eqMask != 0) {
 				int idx = base + Integer.numberOfTrailingZeros(eqMask);
-				if (Objects.equals(keys[idx], key)) {
+                Object k = keys[idx];
+                if (k == key || k.equals(key)) {
 					return idx;
 				}
 				eqMask &= eqMask - 1; // clear LSB
