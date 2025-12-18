@@ -65,6 +65,17 @@ class SwissMapEqMaskDebugTest {
 		assertEquals("11111111", bits8(eqMask(word, (byte) 0x00)));
 		assertEquals("00000000", bits8(eqMask(word, (byte) 0x01)));
 	}
+
+	@Test
+	void testEqMaskEdgeCase_Qword0100() {
+		long word = 0x0000_0000_0000_0100L;
+
+		int mask = eqMask(word, (byte) 0x00);
+
+		// bytes: [00, 01, 00, 00, 00, 00, 00, 00] -> mask bits [1,0,1,1,1,1,1,1] = 0xFD
+		assertEquals(0xFD, mask & 0xFF);
+		assertEquals("11111101", bits8(mask));
+	}
 }
 
 
