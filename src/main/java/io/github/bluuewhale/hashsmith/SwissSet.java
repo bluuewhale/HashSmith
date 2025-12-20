@@ -34,8 +34,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 
 	/* Storage */
 	private final double loadFactor;
-	private int numGroups; // cached group count (updated on init/rehash)
-	private int groupMask; // cached (numGroups - 1), valid because numGroups is power-of-two
+	private int groupMask; // cached (nGroups - 1), valid because nGroups is power-of-two
 	private byte[] ctrl;   // control bytes (EMPTY/DELETED/H2 fingerprint)
 	private Object[] keys; // key storage
 	private int capacity;
@@ -60,7 +59,6 @@ public class SwissSet<E> extends AbstractSet<E> {
 	private void init(int desiredCapacity) {
 		int nGroups = Math.max(1, (desiredCapacity + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
 		nGroups = Utils.ceilPow2(nGroups);
-		this.numGroups = nGroups;
 		this.groupMask = nGroups - 1;
 		this.capacity = nGroups * DEFAULT_GROUP_SIZE;
 
@@ -98,6 +96,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 		int mask = groupMask;
 		int firstTombstone = -1;
 		int g = h1 & mask;
+		int step = 0; // triangular probing step over groups
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
 			ByteVector v = loadCtrlVector(base);
@@ -119,7 +118,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 				insertAt(target, e, h2);
 				return true;
 			}
-			g = (g + 1) & mask;
+			g = (g + (++step)) & mask; // triangular (quadratic) probing over groups
 		}
 	}
 
@@ -188,7 +187,6 @@ public class SwissSet<E> extends AbstractSet<E> {
 
 		int desiredGroups = Math.max(1, (Math.max(newCapacity, DEFAULT_GROUP_SIZE) + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
 		desiredGroups = Utils.ceilPow2(desiredGroups);
-		this.numGroups = desiredGroups;
 		this.groupMask = desiredGroups - 1;
 		this.capacity = desiredGroups * DEFAULT_GROUP_SIZE;
 		this.ctrl = new byte[this.capacity + DEFAULT_GROUP_SIZE];
@@ -214,6 +212,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 	private void insertFresh(E key, int h1, byte h2) {
 		int mask = groupMask;
 		int g = h1 & mask;
+		int step = 0; // triangular probing step over groups
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
 			for (int j = 0; j < DEFAULT_GROUP_SIZE; j++) {
@@ -225,7 +224,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 					return;
 				}
 			}
-			g = (g + 1) & mask;
+			g = (g + (++step)) & mask; // triangular (quadratic) probing over groups
 		}
 	}
 
@@ -236,6 +235,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 		byte h2 = h2(h);
 		int mask = groupMask;
 		int g = h1 & mask;
+		int step = 0; // triangular probing step over groups
 		for (;;) {
 			int base = g * DEFAULT_GROUP_SIZE;
 			ByteVector v = loadCtrlVector(base);
@@ -252,7 +252,7 @@ public class SwissSet<E> extends AbstractSet<E> {
 			if (emptyMask != 0) {
 				return -1;
 			}
-			g = (g + 1) & mask;
+			g = (g + (++step)) & mask; // triangular (quadratic) probing over groups
 		}
 	}
 
