@@ -10,8 +10,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.StampedLock;
 
-import static java.util.Objects.requireNonNull;
-
 /**
  * A sharded, thread-safe wrapper around {@link SwissMap}.
  *
@@ -31,7 +29,8 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 	private static final int DEFAULT_INITIAL_CAPACITY = 16;
 	private static final double DEFAULT_LOAD_FACTOR = 0.875d;
 
-	private final Shard<K, V>[] shards;
+	private final StampedLock[] locks;
+	private final SwissMap<K, V>[] maps;
 	private final int shardMask;
 	private final int shardBits;
 	private final LongAdder totalSize = new LongAdder();
@@ -54,15 +53,18 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		this.shardBits = Integer.numberOfTrailingZeros(sc);
 		this.shardMask = sc - 1;
 
+		StampedLock[] locks = new StampedLock[sc];
 		@SuppressWarnings("unchecked")
-		Shard<K, V>[] tmp = (Shard<K, V>[]) new Shard[sc];
+		SwissMap<K, V>[] maps = (SwissMap<K, V>[]) new SwissMap[sc];
 
 		int cap = Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity);
 		int perShard = Math.max(1, (cap + sc - 1) / sc);
 		for (int i = 0; i < sc; i++) {
-			tmp[i] = new Shard<>(new SwissMap<>(perShard, loadFactor));
+			locks[i] = new StampedLock();
+			maps[i] = new SwissMap<>(perShard, loadFactor);
 		}
-		this.shards = tmp;
+		this.locks = locks;
+		this.maps = maps;
 	}
 
 	private static int defaultShardCount() {
@@ -70,12 +72,7 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		return Utils.ceilPow2(Math.max(1, cores * 2));
 	}
 
-	private Shard<K, V> shardFor(Object key) {
-        int idx = shardIndexFor(key);
-		return requireNonNull(shards[idx], "Shard is null");
-	}
-
-	private int shardIndexFor(Object key) {
+	private int shardOf(Object key) {
         if (key == null) throw new NullPointerException("Null keys not supported");
 		int h = Hashing.smearedHash(key);
 		if (shardBits == 0) return 0;
@@ -84,46 +81,53 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 
 	@Override
 	public V get(Object key) {
-		Shard<K, V> s = shardFor(key);
-		long stamp = s.lock.tryOptimisticRead();
-		V v = s.map.get(key);
-		if (s.lock.validate(stamp)) return v;
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+
+		long stamp = lock.tryOptimisticRead();
+		V v = map.get(key);
+		if (lock.validate(stamp)) return v;
 
 		// Fallback to read lock.
-		stamp = s.lock.readLock();
+		stamp = lock.readLock();
 		try {
-			return s.map.get(key);
+			return map.get(key);
 		} finally {
-			s.lock.unlockRead(stamp);
+			lock.unlockRead(stamp);
 		}
 	}
 
 	@Override
 	public boolean containsKey(Object key) {
-		Shard<K, V> s = shardFor(key);
-		long stamp = s.lock.tryOptimisticRead();
-		boolean ok = s.map.containsKey(key);
-		if (s.lock.validate(stamp)) return ok;
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+
+		long stamp = lock.tryOptimisticRead();
+		boolean ok = map.containsKey(key);
+		if (lock.validate(stamp)) return ok;
 
 		// Fallback to read lock.
-		stamp = s.lock.readLock();
+		stamp = lock.readLock();
 		try {
-			return s.map.containsKey(key);
+			return map.containsKey(key);
 		} finally {
-			s.lock.unlockRead(stamp);
+			lock.unlockRead(stamp);
 		}
 	}
 
 	@Override
 	public boolean containsValue(Object value) {
 		// Read-only scan; lock each shard to avoid concurrent structural changes.
-		for (int i = 0; i < shards.length; i++) {
-			Shard<K, V> s = shards[i];
-			long stamp = s.lock.readLock();
+		for (int i = 0; i < maps.length; i++) {
+			StampedLock lock = locks[i];
+			SwissMap<K, V> map = maps[i];
+			long stamp = lock.readLock();
 			try {
-				if (s.map.containsValue(value)) return true;
+				if (map.containsValue(value)) return true;
 			} finally {
-				s.lock.unlockRead(stamp);
+				lock.unlockRead(stamp);
 			}
 		}
 		return false;
@@ -131,31 +135,37 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 
 	@Override
 	public V put(K key, V value) {
-		Shard<K, V> s = shardFor(key);
-		long stamp = s.lock.writeLock();
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+
+		long stamp = lock.writeLock();
 		try {
-			int before = s.map.size();
-			V old = s.map.put(key, value);
-			int after = s.map.size();
+			int before = map.size();
+			V old = map.put(key, value);
+			int after = map.size();
 			if (after != before) totalSize.add((long) after - before);
 			return old;
 		} finally {
-			s.lock.unlockWrite(stamp);
+			lock.unlockWrite(stamp);
 		}
 	}
 
 	@Override
 	public V remove(Object key) {
-		Shard<K, V> s = shardFor(key);
-		long stamp = s.lock.writeLock();
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+
+		long stamp = lock.writeLock();
 		try {
-			int before = s.map.size();
-			V old = s.map.remove(key);
-			int after = s.map.size();
+			int before = map.size();
+			V old = map.remove(key);
+			int after = map.size();
 			if (after != before) totalSize.add((long) after - before);
 			return old;
 		} finally {
-			s.lock.unlockWrite(stamp);
+			lock.unlockWrite(stamp);
 		}
 	}
 
@@ -164,10 +174,10 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		// Batch by shard to reduce lock acquisitions.
 		@SuppressWarnings("unchecked")
 		ArrayList<Entry<? extends K, ? extends V>>[] buckets = (ArrayList<Entry<? extends K, ? extends V>>[])
-			new ArrayList[shards.length];
+			new ArrayList[maps.length];
 
 		for (Entry<? extends K, ? extends V> e : m.entrySet()) {
-			int idx = shardIndexFor(e.getKey());
+			int idx = shardOf(e.getKey());
 			ArrayList<Entry<? extends K, ? extends V>> b = buckets[idx];
 			if (b == null) {
 				b = new ArrayList<>();
@@ -179,32 +189,34 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		for (int i = 0; i < buckets.length; i++) {
 			ArrayList<Entry<? extends K, ? extends V>> b = buckets[i];
 			if (b == null) continue;
-			Shard<K, V> s = shards[i];
-			long stamp = s.lock.writeLock();
+			StampedLock lock = locks[i];
+			SwissMap<K, V> map = maps[i];
+			long stamp = lock.writeLock();
 			try {
-				int before = s.map.size();
+				int before = map.size();
 				for (Entry<? extends K, ? extends V> e : b) {
-					s.map.put(e.getKey(), e.getValue());
+					map.put(e.getKey(), e.getValue());
 				}
-				int after = s.map.size();
+				int after = map.size();
 				if (after != before) totalSize.add((long) after - before);
 			} finally {
-				s.lock.unlockWrite(stamp);
+				lock.unlockWrite(stamp);
 			}
 		}
 	}
 
 	@Override
 	public void clear() {
-		for (int i = 0; i < shards.length; i++) {
-			Shard<K, V> s = shards[i];
-			long stamp = s.lock.writeLock();
+		for (int i = 0; i < maps.length; i++) {
+			StampedLock lock = locks[i];
+			SwissMap<K, V> map = maps[i];
+			long stamp = lock.writeLock();
 			try {
-				int before = s.map.size();
-				s.map.clear();
+				int before = map.size();
+				map.clear();
 				if (before != 0) totalSize.add(-before);
 			} finally {
-				s.lock.unlockWrite(stamp);
+				lock.unlockWrite(stamp);
 			}
 		}
 	}
@@ -249,16 +261,18 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 			if (!(o instanceof Entry<?, ?> e)) return false;
 			Object key = e.getKey();
 			Object expected = e.getValue();
-			Shard<K, V> s = shardFor(key);
-			long stamp = s.lock.writeLock();
+			int idx = shardOf(key);
+			StampedLock lock = locks[idx];
+			SwissMap<K, V> map = maps[idx];
+			long stamp = lock.writeLock();
 			try {
-				if (!s.map.containsKey(key)) return false;
-				Object actual = s.map.get(key);
+				if (!map.containsKey(key)) return false;
+				Object actual = map.get(key);
 				if (!Objects.equals(actual, expected)) return false;
-				s.map.remove(key);
+				map.remove(key);
 				return true;
 			} finally {
-				s.lock.unlockWrite(stamp);
+				lock.unlockWrite(stamp);
 			}
 		}
 
@@ -272,15 +286,16 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 
 	private ArrayList<Entry<K, V>> snapshotEntries() {
 		ArrayList<Entry<K, V>> out = new ArrayList<>();
-		for (int i = 0; i < shards.length; i++) {
-			Shard<K, V> s = shards[i];
-			long stamp = s.lock.readLock();
+		for (int i = 0; i < maps.length; i++) {
+			StampedLock lock = locks[i];
+			SwissMap<K, V> map = maps[i];
+			long stamp = lock.readLock();
 			try {
-				for (Entry<K, V> e : s.map.entrySet()) {
+				for (Entry<K, V> e : map.entrySet()) {
 					out.add(new SnapshotEntry(e.getKey(), e.getValue()));
 				}
 			} finally {
-				s.lock.unlockRead(stamp);
+				lock.unlockRead(stamp);
 			}
 		}
 		return out;
@@ -355,11 +370,6 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		}
 	}
 
-	private static final class Shard<K, V> {
-		final StampedLock lock = new StampedLock();
-		final SwissMap<K, V> map;
-		Shard(SwissMap<K, V> map) { this.map = map; }
-	}
 }
 
 
