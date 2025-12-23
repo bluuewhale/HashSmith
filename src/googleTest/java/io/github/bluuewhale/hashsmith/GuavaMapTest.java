@@ -7,20 +7,7 @@ import com.google.common.collect.testing.TestStringMapGenerator;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.MapFeature;
-import com.google.common.collect.testing.testers.CollectionCreationTester;
-import com.google.common.collect.testing.testers.CollectionIteratorTester;
-import com.google.common.collect.testing.testers.CollectionAddAllTester;
-import com.google.common.collect.testing.testers.CollectionAddTester;
-import com.google.common.collect.testing.testers.ConcurrentMapPutIfAbsentTester;
-import com.google.common.collect.testing.testers.ConcurrentMapReplaceEntryTester;
-import com.google.common.collect.testing.testers.ConcurrentMapReplaceTester;
-import com.google.common.collect.testing.testers.MapCreationTester;
-import com.google.common.collect.testing.testers.MapEntrySetTester;
-import com.google.common.collect.testing.testers.MapPutAllTester;
-import com.google.common.collect.testing.testers.MapPutIfAbsentTester;
-import com.google.common.collect.testing.testers.MapPutTester;
-import com.google.common.collect.testing.testers.MapReplaceEntryTester;
-import com.google.common.collect.testing.testers.MapReplaceTester;
+import com.google.common.collect.testing.testers.*;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -28,7 +15,6 @@ import org.jspecify.annotations.NullMarked;
 
 import java.lang.reflect.Method;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 @NullMarked
@@ -73,7 +59,6 @@ public final class GuavaMapTest extends TestCase {
                 MapFeature.GENERAL_PURPOSE,
                 MapFeature.ALLOWS_NULL_VALUES,
                 MapFeature.ALLOWS_NULL_ENTRY_QUERIES,
-                CollectionFeature.NON_STANDARD_TOSTRING,
                 CollectionFeature.SUPPORTS_ITERATOR_REMOVE)
             .suppressing(suppressed)
             .createTestSuite();

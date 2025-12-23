@@ -1,6 +1,8 @@
 package io.github.bluuewhale.hashsmith;
 
-import com.google.common.collect.testing.*;
+import com.google.common.collect.testing.SetTestSuiteBuilder;
+import com.google.common.collect.testing.TestSetGenerator;
+import com.google.common.collect.testing.TestStringSetGenerator;
 import com.google.common.collect.testing.features.CollectionFeature;
 import com.google.common.collect.testing.features.CollectionSize;
 import com.google.common.collect.testing.features.SetFeature;
@@ -9,7 +11,8 @@ import junit.framework.TestCase;
 import junit.framework.TestSuite;
 import org.jspecify.annotations.NullMarked;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Set;
 import java.util.function.Supplier;
 
 @NullMarked
