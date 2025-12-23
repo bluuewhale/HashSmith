@@ -31,8 +31,8 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 
 	private final StampedLock[] locks;
 	private final SwissMap<K, V>[] maps;
-	private final int shardMask;
 	private final int shardBits;
+	private final int shardShift;
 	private final LongAdder totalSize = new LongAdder();
 
 	public ConcurrentSwissMap() {
@@ -51,7 +51,13 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		if (shardCount <= 0) throw new IllegalArgumentException("shardCount must be > 0");
 		int sc = Utils.ceilPow2(shardCount);
 		this.shardBits = Integer.numberOfTrailingZeros(sc);
-		this.shardMask = sc - 1;
+		// SwissMap stores H2 in the lower 7 bits (control byte tag). Do not use those bits for sharding.
+		// We shard by the high bits of H1 (hash >>> 7), mirroring hashbrown's "leave tag bits out" approach.
+		int shift = (Integer.SIZE - 7) - shardBits;
+		if (shift < 0) {
+			throw new IllegalArgumentException("shardCount too large: max shards is 2^(Integer.SIZE-7)");
+		}
+		this.shardShift = shift;
 
 		StampedLock[] locks = new StampedLock[sc];
 		@SuppressWarnings("unchecked")
@@ -73,10 +79,12 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	private int shardOf(Object key) {
-        if (key == null) throw new NullPointerException("Null keys not supported");
+		if (key == null) throw new NullPointerException("Null keys not supported");
 		int h = Hashing.smearedHash(key);
 		if (shardBits == 0) return 0;
-		return (h >>> (Integer.SIZE - shardBits)) & shardMask; // use high bits
+		// Leave the lower 7 bits for SwissMap's H2 tag; shard by the remaining bits (H1).
+		int idx = (h >>> 7) >>> shardShift;
+		return idx;
 	}
 
 	@Override
