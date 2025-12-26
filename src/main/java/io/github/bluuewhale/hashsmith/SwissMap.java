@@ -37,8 +37,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	private Object[] keys;   // key storage
 	private Object[] vals;   // value storage
 	private int tombstones;  // deleted slots
-	private int numGroups;   // cached group count (updated on init/rehash)
-	private int groupMask;   // cached (numGroups - 1), valid because numGroups is power-of-two
+	private int groupMask;   // cached (nGroups - 1), valid because nGroups is power-of-two
 
 	public SwissMap() {
 		this(16, DEFAULT_LOAD_FACTOR);
@@ -56,7 +55,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	protected void init(int desiredCapacity) {
 		int nGroups = Math.max(1, (desiredCapacity + GROUP_SIZE - 1) / GROUP_SIZE);
 		nGroups = ceilPow2(nGroups);
-		this.numGroups = nGroups;
 		this.groupMask = nGroups - 1;
 		this.capacity = nGroups * GROUP_SIZE;
 
@@ -187,7 +185,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 
 		int desiredGroups = Math.max(1, (Math.max(newCapacity, GROUP_SIZE) + GROUP_SIZE - 1) / GROUP_SIZE);
 		desiredGroups = ceilPow2(desiredGroups);
-		this.numGroups = desiredGroups;
 		this.groupMask = desiredGroups - 1;
 		this.capacity = desiredGroups * GROUP_SIZE;
 		this.ctrl = new long[desiredGroups];
@@ -341,7 +338,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		int step = 0; // triangular probing step over groups
 		int firstTombstone = -1;
-		int visitedGroups = 0;
 		for (;;) {
 			long word = ctrl[g];
 			int base = g << 3;
@@ -366,9 +362,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 				int idx = base + Integer.numberOfTrailingZeros(emptyMask);
 				int target = (firstTombstone >= 0) ? firstTombstone : idx;
 				return insertAt(target, key, value, h2);
-			}
-			if (++visitedGroups >= numGroups) {
-				throw new IllegalStateException("Probe cycle exhausted; table appears full of tombstones");
 			}
 			g = (g + (++step)) & mask; // triangular (quadratic) probing over groups
 		}
@@ -423,7 +416,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 		int mask = groupMask; // local snapshot
 		int g = h1 & mask; // optimized modulo operation (same as h1 % nGroups)
 		int step = 0; // triangular probing step over groups
-		int visitedGroups = 0;
 		for (;;) {
 			long word = ctrl[g];
 			int eqMask = eqMask(word, h2);
@@ -439,9 +431,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 			}
 			int emptyMask = eqMask(word, EMPTY);
 			if (emptyMask != 0) {
-				return -1;
-			}
-			if (++visitedGroups >= numGroups) {
 				return -1;
 			}
 			g = (g + (++step)) & mask; // triangular (quadratic) probing over groups
