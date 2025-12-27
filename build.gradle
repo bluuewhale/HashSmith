@@ -1,15 +1,14 @@
 plugins {
     id 'java'
-    id 'me.champeau.jmh' version '0.7.2'
-    id "com.vanniktech.maven.publish" version "0.28.0"
+    alias libs.plugins.jmh
+    alias libs.plugins.maven.publish
 }
 
 group = 'io.github.bluuewhale'
 version = '0.1.7'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
     withSourcesJar()
 }
 
@@ -18,22 +17,50 @@ repositories {
 }
 
 dependencies {
-    testImplementation platform('org.junit:junit-bom:5.10.0')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testImplementation 'org.eclipse.collections:eclipse-collections:11.1.0'
-    testImplementation 'it.unimi.dsi:fastutil:8.5.13'
-    testImplementation 'org.openjdk.jol:jol-core:0.17'
-
-    jmhImplementation 'org.openjdk.jmh:jmh-core:1.37'
-    jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
-    jmhImplementation 'org.eclipse.collections:eclipse-collections:11.1.0'
-    jmhImplementation 'it.unimi.dsi:fastutil:8.5.13'
+    jmhImplementation libs.jmh.core
+    jmhAnnotationProcessor libs.jmh.processor
+    jmhImplementation libs.eclipse.collections
+    jmhImplementation libs.fastutil
 }
 
-test {
-    useJUnitPlatform()
+testing.suites {
+    test {
+        useJUnitJupiter(libs.versions.junit.jupitor)
+
+        dependencies {
+            implementation libs.fastutil
+            implementation libs.java.object.layout
+            implementation libs.eclipse.collections
+        }
+    }
+    apacheTest(JvmTestSuite) {
+        useJUnitJupiter(libs.versions.junit.jupitor)
+
+        dependencies {
+            implementation(project())
+            implementation(libs.commons.lang3)
+            implementation(libs.commons.collections4)
+            implementation(libs.commons.collections4) {
+                artifact { classifier = "tests" }
+            }
+        }
+    }
+    googleTest(JvmTestSuite) {
+        useJUnit()
+
+        dependencies {
+            implementation(project())
+            implementation libs.guava.testlib
+        }
+    }
+}
+
+tasks.withType(Test).configureEach {
     jvmArgs '--add-modules', 'jdk.incubator.vector'
+}
+
+tasks.check.configure {
+    dependsOn(tasks.withType(Test))
 }
 
 // JIT / ASM (HotSpot PrintAssembly) runner for SwissMap.findIndexHashed.

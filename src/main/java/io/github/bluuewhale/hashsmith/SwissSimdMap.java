@@ -395,7 +395,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		private int last = -1;
 
 		BaseIter() {
-			RandomCycle cycle = new RandomCycle(capacity);
+			RandomCycle cycle = new RandomCycle(capacity, iterationSeed);
 			this.start = cycle.start;
 			this.step = cycle.step;
 			this.mask = cycle.mask;
@@ -490,6 +490,11 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		@Override
 		public int hashCode() {
 			return Objects.hashCode(getKey()) ^ Objects.hashCode(getValue());
+		}
+
+		@Override
+		public String toString() {
+			return keys[idx] + "=" + vals[idx];
 		}
 	}
 

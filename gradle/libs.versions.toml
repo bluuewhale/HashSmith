@@ -1,0 +1,27 @@
+[versions]
+commons-collections4 = "4.5.0"
+commons-lang3 = "3.20.0"
+eclipse-collections = "11.1.0"
+fastutil = "8.5.13"
+guava = "33.5.0-jre"
+jmh = "1.37"
+jmh-plugin = "0.7.2"
+java-object-layout = "0.17"
+junit-jupitor = "5.10.0"
+maven-publish = "0.28.0"
+
+[libraries]
+commons-collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "commons-collections4" }
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+eclipse-collections = { module = "org.eclipse.collections:eclipse-collections", version.ref = "eclipse-collections" }
+fastutil = { module = "it.unimi.dsi:fastutil", version.ref = "fastutil" }
+guava-testlib = { module = "com.google.guava:guava-testlib", version.ref = "guava" }
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmh-processor = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
+java-object-layout = { module = "org.openjdk.jol:jol-core", version.ref = "java-object-layout" }
+
+[bundles]
+
+[plugins]
+jmh = { id = "me.champeau.jmh", version.ref = "jmh-plugin" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }

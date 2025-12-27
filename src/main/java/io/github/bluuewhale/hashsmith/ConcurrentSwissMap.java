@@ -1,13 +1,19 @@
 package io.github.bluuewhale.hashsmith;
 
-import java.util.AbstractMap;
+import java.util.AbstractCollection;
 import java.util.AbstractSet;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.StampedLock;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * A sharded, thread-safe wrapper around {@link SwissMap}.
@@ -23,7 +29,7 @@ import java.util.concurrent.locks.StampedLock;
  * overlaps with a writer, the core map may still throw (e.g., NPE) unless the core publish/NULL-safety
  * rules are strengthened. This class is intended to be used together with those follow-up changes.
  */
-public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
+public final class ConcurrentSwissMap<K, V> implements ConcurrentMap<K, V> {
 
 	private static final int DEFAULT_INITIAL_CAPACITY = 16;
 	private static final double DEFAULT_LOAD_FACTOR = 0.875d;
@@ -262,6 +268,377 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 	}
 
 	@Override
+	public V putIfAbsent(K key, V value) {
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+		long stamp = lock.writeLock();
+		try {
+			// Map/ConcurrentMap contract: treat "mapped-to-null" as absent and insert the value.
+			V cur = map.get(key);
+			if (cur != null) return cur;
+			map.put(key, value);
+			return null;
+		} finally {
+			lock.unlockWrite(stamp);
+		}
+	}
+
+	@Override
+	public boolean remove(Object key, Object value) {
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+		long stamp = lock.writeLock();
+		try {
+			if (!map.containsKey(key)) return false;
+			Object cur = map.get(key);
+			if (!Objects.equals(cur, value)) return false;
+			map.remove(key);
+			return true;
+		} finally {
+			lock.unlockWrite(stamp);
+		}
+	}
+
+	@Override
+	public boolean replace(K key, V oldValue, V newValue) {
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+		long stamp = lock.writeLock();
+		try {
+			if (!map.containsKey(key)) return false;
+			Object cur = map.get(key);
+			if (!Objects.equals(cur, oldValue)) return false;
+			map.put(key, newValue);
+			return true;
+		} finally {
+			lock.unlockWrite(stamp);
+		}
+	}
+
+	@Override
+	public V replace(K key, V value) {
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+		long stamp = lock.writeLock();
+		try {
+			if (!map.containsKey(key)) return null;
+			return map.put(key, value);
+		} finally {
+			lock.unlockWrite(stamp);
+		}
+	}
+
+	@Override
+	public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
+		Objects.requireNonNull(mappingFunction, "mappingFunction");
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+		long stamp = lock.writeLock();
+		try {
+			V cur = map.get(key);
+			if (cur != null) return cur;
+			V newVal = mappingFunction.apply(key);
+			if (newVal == null) return null; // do not create a new mapping
+			map.put(key, newVal);
+			return newVal;
+		} finally {
+			lock.unlockWrite(stamp);
+		}
+	}
+
+	@Override
+	public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+		Objects.requireNonNull(remappingFunction, "remappingFunction");
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+		long stamp = lock.writeLock();
+		try {
+			V cur = map.get(key);
+			if (cur == null) return null; // treat mapped-to-null as absent
+			V newVal = remappingFunction.apply(key, cur);
+			if (newVal == null) {
+				map.remove(key);
+				return null;
+			}
+			map.put(key, newVal);
+			return newVal;
+		} finally {
+			lock.unlockWrite(stamp);
+		}
+	}
+
+	@Override
+	public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+		Objects.requireNonNull(remappingFunction, "remappingFunction");
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+		long stamp = lock.writeLock();
+		try {
+			V oldVal = map.get(key);
+			V newVal = remappingFunction.apply(key, oldVal);
+			if (newVal == null) {
+                map.remove(key);
+				return null;
+			}
+			map.put(key, newVal);
+			return newVal;
+		} finally {
+			lock.unlockWrite(stamp);
+		}
+	}
+
+	@Override
+	public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+		Objects.requireNonNull(value, "value");
+		Objects.requireNonNull(remappingFunction, "remappingFunction");
+		int idx = shardOf(key);
+		StampedLock lock = locks[idx];
+		SwissMap<K, V> map = maps[idx];
+		long stamp = lock.writeLock();
+		try {
+			V oldVal = map.get(key);
+			if (oldVal == null) {
+				map.put(key, value);
+				return value;
+			}
+			V newVal = remappingFunction.apply(oldVal, value);
+			if (newVal == null) {
+				map.remove(key);
+				return null;
+			}
+			map.put(key, newVal);
+			return newVal;
+		} finally {
+			lock.unlockWrite(stamp);
+		}
+	}
+
+	@Override
+	public void forEach(BiConsumer<? super K, ? super V> action) {
+		Objects.requireNonNull(action, "action");
+		for (Entry<K, V> e : snapshotEntries()) {
+			action.accept(e.getKey(), e.getValue());
+		}
+	}
+
+	@Override
+	public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+		Objects.requireNonNull(function, "function");
+		for (int i = 0; i < maps.length; i++) {
+			StampedLock lock = locks[i];
+			SwissMap<K, V> map = maps[i];
+			long stamp = lock.writeLock();
+			try {
+				// Avoid mutating while iterating the core map by snapshotting keys first.
+				ArrayList<K> keys = new ArrayList<>(map.size());
+				for (Entry<K, V> e : map.entrySet()) {
+					keys.add(e.getKey());
+				}
+				for (K k : keys) {
+					V oldVal = map.get(k);
+					V newVal = function.apply(k, oldVal);
+					map.put(k, newVal);
+				}
+			} finally {
+				lock.unlockWrite(stamp);
+			}
+		}
+	}
+
+	@Override
+	public int hashCode() {
+		int h = 0;
+		for (Entry<K, V> e : entrySet()) {
+			h += e.hashCode();
+		}
+		return h;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (o == this) return true;
+		if (!(o instanceof Map<?, ?> m)) return false;
+		if (m.size() != this.size()) return false;
+		try {
+			for (Entry<K, V> e : entrySet()) {
+				K key = e.getKey();
+				V value = e.getValue();
+				Object other = m.get(key);
+				if (!Objects.equals(value, other)) return false;
+				if (value == null && !m.containsKey(key)) return false;
+			}
+		} catch (ClassCastException | NullPointerException unused) {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		Iterator<Entry<K, V>> i = entrySet().iterator();
+		if (!i.hasNext()) return "{}";
+		StringBuilder sb = new StringBuilder();
+		sb.append('{');
+		for (;;) {
+			Entry<K, V> e = i.next();
+			K k = e.getKey();
+			V v = e.getValue();
+			sb.append(k == this ? "(this Map)" : k);
+			sb.append('=');
+			sb.append(v == this ? "(this Map)" : v);
+			if (!i.hasNext()) return sb.append('}').toString();
+			sb.append(',').append(' ');
+		}
+	}
+
+	@Override
+	public Set<K> keySet() {
+		return new KeyView();
+	}
+
+	private final class KeyView extends AbstractSet<K> {
+		@Override
+		public int size() {
+			return ConcurrentSwissMap.this.size();
+		}
+
+		@Override
+		public void clear() {
+			ConcurrentSwissMap.this.clear();
+		}
+
+		@Override
+		public boolean contains(Object o) {
+			return ConcurrentSwissMap.this.containsKey(o);
+		}
+
+		@Override
+		public boolean remove(Object o) {
+			int idx = shardOf(o);
+			StampedLock lock = locks[idx];
+			SwissMap<K, V> map = maps[idx];
+			long stamp = lock.writeLock();
+			try {
+				if (!map.containsKey(o)) return false;
+				map.remove(o);
+				return true;
+			} finally {
+				lock.unlockWrite(stamp);
+			}
+		}
+
+		@Override
+		public Iterator<K> iterator() {
+			ArrayList<Entry<K, V>> snap = snapshotEntries();
+			return new Iterator<>() {
+				private int i = 0;
+				private K lastKey;
+				private boolean canRemove;
+
+				@Override
+				public boolean hasNext() {
+					return i < snap.size();
+				}
+
+				@Override
+				public K next() {
+					Entry<K, V> e = snap.get(i++);
+					lastKey = e.getKey();
+					canRemove = true;
+					return lastKey;
+				}
+
+				@Override
+				public void remove() {
+					if (!canRemove) throw new IllegalStateException();
+					ConcurrentSwissMap.this.remove(lastKey);
+					canRemove = false;
+				}
+			};
+		}
+	}
+
+	@Override
+	public Collection<V> values() {
+		return new ValuesView();
+	}
+
+	private final class ValuesView extends AbstractCollection<V> {
+		@Override
+		public int size() {
+			return ConcurrentSwissMap.this.size();
+		}
+
+		@Override
+		public void clear() {
+			ConcurrentSwissMap.this.clear();
+		}
+
+		@Override
+		public boolean contains(Object o) {
+			return ConcurrentSwissMap.this.containsValue(o);
+		}
+
+		@Override
+		public Iterator<V> iterator() {
+			ArrayList<Entry<K, V>> snap = snapshotEntries();
+			return new Iterator<>() {
+				private int i = 0;
+				private K lastKey;
+				private boolean canRemove;
+
+				@Override
+				public boolean hasNext() {
+					return i < snap.size();
+				}
+
+				@Override
+				public V next() {
+					Entry<K, V> e = snap.get(i++);
+					lastKey = e.getKey();
+					canRemove = true;
+					return e.getValue();
+				}
+
+				@Override
+				public void remove() {
+					if (!canRemove) throw new IllegalStateException();
+					ConcurrentSwissMap.this.remove(lastKey);
+					canRemove = false;
+				}
+			};
+		}
+
+		@Override
+		public boolean remove(Object o) {
+			// Remove one occurrence (first match).
+			for (int i = 0; i < maps.length; i++) {
+				StampedLock lock = locks[i];
+				SwissMap<K, V> map = maps[i];
+				long stamp = lock.writeLock();
+				try {
+					for (Entry<K, V> e : map.entrySet()) {
+						if (Objects.equals(e.getValue(), o)) {
+							map.remove(e.getKey());
+							return true;
+						}
+					}
+				} finally {
+					lock.unlockWrite(stamp);
+				}
+			}
+			return false;
+		}
+	}
+
+	@Override
 	public Set<Entry<K, V>> entrySet() {
 		return new EntrySetView();
 	}
@@ -398,6 +775,11 @@ public final class ConcurrentSwissMap<K, V> extends AbstractMap<K, V> {
 		@Override
 		public int hashCode() {
 			return Objects.hashCode(key) ^ Objects.hashCode(value);
+		}
+
+		@Override
+		public String toString() {
+			return key + "=" + value;
 		}
 	}
 
