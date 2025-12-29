@@ -21,7 +21,6 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	private static final byte DELETED = (byte) 0xFE;  // tombstone
 
 	/* Hash split masks: high bits choose group, low 7 bits stored in control byte */
-	private static final int H1_MASK = 0xFFFFFF80;
 	private static final int H2_MASK = 0x0000007F;
 
 	/* Group sizing: SWAR fixed at 8 slots (1 word) */
@@ -88,7 +87,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 
 	/* Hash split helpers */
 	private int h1(int hash) {
-		return (hash & H1_MASK) >>> 7;
+		return hash >>> 7;
 	}
 
 	private byte h2(int hash) {
