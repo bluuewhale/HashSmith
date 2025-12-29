@@ -215,7 +215,7 @@ public class SwissMap<K, V> extends AbstractArrayMap<K, V> {
 	private void setCtrlAt(long[] ctrl, int idx, byte value) {
 		int group = idx >> 3;
 		int offset = (idx & 7) << 3;
-		long word = ctrlWordPlain(ctrl, group);
+		long word = ctrl[group];
 		long mask = 0xFFL << offset;
 		// Plain store for the non-concurrent SwissMap contract.
 		ctrl[group] = (word & ~mask) | (toUnsignedByte(value) << offset);
