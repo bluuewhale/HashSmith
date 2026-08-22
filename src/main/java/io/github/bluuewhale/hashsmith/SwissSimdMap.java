@@ -1,5 +1,6 @@
 package io.github.bluuewhale.hashsmith;
 
+import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -7,13 +8,14 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorSpecies;
 
 /**
  * SwissTable-inspired Map implementation using Vector API (SIMD).
  */
-public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
+public class SwissSimdMap<K, V> extends AbstractMap<K, V> {
 
 	/* Control byte values */
 	private static final byte EMPTY = (byte) 0x80;    // empty slot
@@ -39,6 +41,12 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 	private Object[] vals;   // value storage
 	private int tombstones;  // deleted slots
 
+	private final double loadFactor;
+	// Fixed per-instance seed (do not re-randomize per iterator creation)
+	private final long iterationSeed;
+	private int capacity;
+	private int size;
+	private int maxLoad;
 
 	public SwissSimdMap() {
 		this(16, DEFAULT_LOAD_FACTOR);
@@ -49,13 +57,18 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 	}
 
 	public SwissSimdMap(int initialCapacity, double loadFactor) {
-		super(initialCapacity, loadFactor);
+		if (initialCapacity < 0) {
+			throw new IllegalArgumentException("initialCapacity must be >= 0: " + initialCapacity);
+		}
+		Utils.validateLoadFactor(loadFactor);
+		this.loadFactor = loadFactor;
+		this.iterationSeed = ThreadLocalRandom.current().nextLong();
+		init(initialCapacity);
 	}
 
-	@Override
-	protected void init(int desiredCapacity) {
+	private void init(int desiredCapacity) {
 		int nGroups = Math.max(1, (desiredCapacity + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
-		nGroups = ceilPow2(nGroups);
+		nGroups = Utils.ceilPow2(nGroups);
 		this.numGroups = nGroups;
 		this.groupMask = nGroups - 1;
 		this.capacity = nGroups * DEFAULT_GROUP_SIZE;
@@ -67,7 +80,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		this.vals = new Object[capacity];
 		this.size = 0;
 		this.tombstones = 0;
-		this.maxLoad = calcMaxLoad(this.capacity);
+		this.maxLoad = Utils.calcMaxLoad(this.capacity, loadFactor);
 	}
 
 	/* Hash split helpers */
@@ -81,6 +94,11 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 
 	private int hash(Object key) {
 		return hashNonNull(key);
+	}
+
+	private int hashNonNull(Object key) {
+		if (key == null) throw new NullPointerException("Null keys not supported");
+		return Hashing.smearedHash(key);
 	}
 
 	/* Control byte inspectors */
@@ -113,7 +131,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		int oldCap = (oldCtrl == null) ? 0 : oldCtrl.length - DEFAULT_GROUP_SIZE; // exclude sentinel padding
 
 		int desiredGroups = Math.max(1, (Math.max(newCapacity, DEFAULT_GROUP_SIZE) + DEFAULT_GROUP_SIZE - 1) / DEFAULT_GROUP_SIZE);
-		desiredGroups = ceilPow2(desiredGroups);
+		desiredGroups = Utils.ceilPow2(desiredGroups);
 		this.numGroups = desiredGroups;
 		this.groupMask = desiredGroups - 1;
 		this.capacity = desiredGroups * DEFAULT_GROUP_SIZE;
@@ -124,7 +142,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		this.vals = new Object[this.capacity];
 		this.size = 0;
 		this.tombstones = 0;
-		this.maxLoad = calcMaxLoad(this.capacity);
+		this.maxLoad = Utils.calcMaxLoad(this.capacity, loadFactor);
 
 		if (oldCtrl == null) return;
 
@@ -175,6 +193,12 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 	@Override
 	public boolean containsKey(Object key) {
 		return findIndex(key) >= 0;
+	}
+
+	@Override
+	public V get(Object key) {
+		int idx = findIndex(key);
+		return (idx >= 0) ? castValue(vals[idx]) : null;
 	}
 
 	@Override
@@ -303,7 +327,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		Arrays.fill(vals, null);
 		size = 0;
 		tombstones = 0;
-		maxLoad = calcMaxLoad(capacity);
+		maxLoad = Utils.calcMaxLoad(capacity, loadFactor);
 	}
 
 	@Override
@@ -322,8 +346,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 	}
 
 	/* lookup utilities */
-	@Override
-	protected int findIndex(Object key) {
+	private int findIndex(Object key) {
 		// Disallow null keys even on empty maps for consistent Map semantics in this project.
 		int h = hashNonNull(key);
 		if (size == 0) return -1;
@@ -380,11 +403,6 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		return (K) k;
 	}
 
-	@Override
-	protected V valueAt(int idx) {
-		return castValue(vals[idx]);
-	}
-
 	/* iterator base */
 	private abstract class BaseIter<T> implements Iterator<T> {
 		private final int start;
@@ -395,7 +413,7 @@ public class SwissSimdMap<K, V> extends AbstractArrayMap<K, V> {
 		private int last = -1;
 
 		BaseIter() {
-			RandomCycle cycle = new RandomCycle(capacity, iterationSeed);
+			Utils.RandomCycle cycle = new Utils.RandomCycle(capacity, iterationSeed);
 			this.start = cycle.start;
 			this.step = cycle.step;
 			this.mask = cycle.mask;
